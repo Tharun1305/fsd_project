@@ -1,0 +1,15 @@
+[
+  {
+    "sample_id": "SMP-4401",
+    "customer_name": "P. Murugan",
+    "company_name": "Murugan Textile Traders",
+    "mobile": "+91 97890 11223",
+    "location": "Madurai, Tamil Nadu",
+    "product_id": "101",
+    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "requirement": "Fabric swatch shade card & 1 metre sample cut piece",
+    "message": "Kindly courier fabric sample to Madurai store address. Willing to pay courier charges.",
+    "status": "New",
+    "created_at": "2026-08-13T08:06:15.350Z"
+  }
+]
