@@ -75,12 +75,33 @@ export function Header({ onOpenQR, currentView, navigate }) {
               <span>Catalog QR</span>
             </button>
             {isAuthenticated ? (
-              <>
-                <button onClick={() => navigate('admin_dashboard')} className="hover:text-blue-300">Admin</button>
-                <button onClick={logout} className="text-rose-300 hover:underline">Logout</button>
-              </>
+              <div className="flex items-center gap-2 bg-slate-800/90 px-3 py-1 rounded-full border border-slate-700/80 shadow-xs">
+                <button
+                  onClick={() => navigate('admin_dashboard')}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 hover:text-amber-200 transition-colors"
+                >
+                  <ShieldCheck size={12} />
+                  <span>Admin Panel</span>
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate('admin_login', { loggedOut: true });
+                  }}
+                  className="text-[11px] font-medium text-rose-300 hover:text-rose-200 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
-              <button onClick={() => navigate('admin_login')} className="hover:text-blue-300">Admin</button>
+              <button
+                onClick={() => navigate('admin_login')}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 px-3 py-1 rounded-full border border-slate-700/80 transition-colors"
+              >
+                <ShieldCheck size={12} className="text-blue-400" />
+                <span>Admin Login</span>
+              </button>
             )}
           </div>
         </div>
@@ -247,6 +268,36 @@ export function Header({ onOpenQR, currentView, navigate }) {
             <button onClick={() => openWhatsApp(null, 500)} className="btn btn-whatsapp flex-1 text-sm">
               <MessageSquare size={15} /><span>{t('whatsapp_us')}</span>
             </button>
+          </div>
+          <div className="pt-2 text-center">
+            {isAuthenticated ? (
+              <div className="flex justify-center items-center gap-3">
+                <button
+                  onClick={() => { navigate('admin_dashboard'); setMobileMenuOpen(false); }}
+                  className="text-xs text-blue-600 font-bold hover:underline"
+                >
+                  ⚙️ Admin Dashboard
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate('admin_login', { loggedOut: true });
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-xs text-rose-600 font-bold hover:underline"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { navigate('admin_login'); setMobileMenuOpen(false); }}
+                className="text-xs text-slate-500 hover:text-slate-800"
+              >
+                🔐 Staff / Admin Login
+              </button>
+            )}
           </div>
         </div>
       )}

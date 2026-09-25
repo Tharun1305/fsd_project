@@ -15,10 +15,27 @@
       "/images/products/fabric_printed.jpg",
       "/images/products/fabric_plain.jpg"
     ],
-    "sizes": ["36 inch", "42 inch", "48 inch", "54 inch", "60 inch"],
-    "colours": ["Multi-Print Assorted", "Floral Patterns", "Geometric Designs", "Abstract Prints", "Stripe Patterns"],
-    "tags": ["Reactive Print", "Colour Fast", "Pre-Shrunk"],
-    "created_at": "2026-08-18T14:06:15.342Z"
+    "sizes": [
+      "36 inch",
+      "42 inch",
+      "48 inch",
+      "54 inch",
+      "60 inch"
+    ],
+    "colours": [
+      "Multi-Print Assorted",
+      "Floral Patterns",
+      "Geometric Designs",
+      "Abstract Prints",
+      "Stripe Patterns"
+    ],
+    "tags": [
+      "Reactive Print",
+      "Colour Fast",
+      "Pre-Shrunk"
+    ],
+    "created_at": "2026-08-18T14:06:15.342Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "102",
@@ -36,10 +53,29 @@
       "/images/products/fabric_plain.jpg",
       "/images/products/fabric_biowash.jpg"
     ],
-    "sizes": ["36 inch", "42 inch", "48 inch", "54 inch", "72 inch Open Width"],
-    "colours": ["White", "Black", "Navy Blue", "Melange Grey", "Olive Green", "Maroon", "Royal Blue"],
-    "tags": ["Single Jersey", "Solid Dye", "Tubular & Open Width"],
-    "created_at": "2026-08-15T14:06:15.347Z"
+    "sizes": [
+      "36 inch",
+      "42 inch",
+      "48 inch",
+      "54 inch",
+      "72 inch Open Width"
+    ],
+    "colours": [
+      "White",
+      "Black",
+      "Navy Blue",
+      "Melange Grey",
+      "Olive Green",
+      "Maroon",
+      "Royal Blue"
+    ],
+    "tags": [
+      "Single Jersey",
+      "Solid Dye",
+      "Tubular & Open Width"
+    ],
+    "created_at": "2026-08-15T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "103",
@@ -57,10 +93,26 @@
       "/images/products/fabric_loopknit.jpg",
       "/images/products/fabric_terry.jpg"
     ],
-    "sizes": ["48 inch", "54 inch", "60 inch Open Width"],
-    "colours": ["Charcoal Grey", "Navy Blue", "Maroon", "Forest Green", "Black", "Dusty Rose"],
-    "tags": ["Loop Back", "Fleece", "Winterwear Fabric"],
-    "created_at": "2026-08-10T14:06:15.347Z"
+    "sizes": [
+      "48 inch",
+      "54 inch",
+      "60 inch Open Width"
+    ],
+    "colours": [
+      "Charcoal Grey",
+      "Navy Blue",
+      "Maroon",
+      "Forest Green",
+      "Black",
+      "Dusty Rose"
+    ],
+    "tags": [
+      "Loop Back",
+      "Fleece",
+      "Winterwear Fabric"
+    ],
+    "created_at": "2026-08-10T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "104",
@@ -78,10 +130,27 @@
       "/images/products/fabric_interlock.jpg",
       "/images/products/fabric_plain.jpg"
     ],
-    "sizes": ["48 inch", "54 inch", "60 inch", "72 inch Open Width"],
-    "colours": ["White", "Baby Pink", "Sky Blue", "Mint Green", "Lemon Yellow", "Peach"],
-    "tags": ["Interlock", "Double Knit", "Zero Curl"],
-    "created_at": "2026-08-19T14:06:15.347Z"
+    "sizes": [
+      "48 inch",
+      "54 inch",
+      "60 inch",
+      "72 inch Open Width"
+    ],
+    "colours": [
+      "White",
+      "Baby Pink",
+      "Sky Blue",
+      "Mint Green",
+      "Lemon Yellow",
+      "Peach"
+    ],
+    "tags": [
+      "Interlock",
+      "Double Knit",
+      "Zero Curl"
+    ],
+    "created_at": "2026-08-19T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "105",
@@ -99,10 +168,25 @@
       "/images/products/fabric_terry.jpg",
       "/images/products/fabric_loopknit.jpg"
     ],
-    "sizes": ["48 inch", "54 inch", "60 inch Open Width"],
-    "colours": ["Acid Wash Black", "Off-White", "Dusty Lavender", "Sage Green", "Heather Grey"],
-    "tags": ["French Terry", "Looped Pile", "Athleisure Fabric"],
-    "created_at": "2026-08-16T14:06:15.347Z"
+    "sizes": [
+      "48 inch",
+      "54 inch",
+      "60 inch Open Width"
+    ],
+    "colours": [
+      "Acid Wash Black",
+      "Off-White",
+      "Dusty Lavender",
+      "Sage Green",
+      "Heather Grey"
+    ],
+    "tags": [
+      "French Terry",
+      "Looped Pile",
+      "Athleisure Fabric"
+    ],
+    "created_at": "2026-08-16T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "106",
@@ -120,10 +204,27 @@
       "/images/products/fabric_thread.jpg",
       "/images/products/fabric_yarn.jpg"
     ],
-    "sizes": ["40/2 Count", "50/2 Count", "60/3 Count", "20/2 Count"],
-    "colours": ["White", "Black", "Navy", "Red", "Grey", "Full Shade Card Available"],
-    "tags": ["High Tenacity", "Spun Polyester", "5000m Cones"],
-    "created_at": "2026-08-08T14:06:15.347Z"
+    "sizes": [
+      "40/2 Count",
+      "50/2 Count",
+      "60/3 Count",
+      "20/2 Count"
+    ],
+    "colours": [
+      "White",
+      "Black",
+      "Navy",
+      "Red",
+      "Grey",
+      "Full Shade Card Available"
+    ],
+    "tags": [
+      "High Tenacity",
+      "Spun Polyester",
+      "5000m Cones"
+    ],
+    "created_at": "2026-08-08T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "107",
@@ -141,10 +242,25 @@
       "/images/products/fabric_yarn.jpg",
       "/images/products/fabric_thread.jpg"
     ],
-    "sizes": ["20s Count", "26s Count", "30s Count", "34s Count", "40s Count"],
-    "colours": ["Greige (Raw)", "Optical White", "Dyed on Request"],
-    "tags": ["Compact Combed", "Low Hairiness", "Tiruppur Spun"],
-    "created_at": "2026-08-02T14:06:15.347Z"
+    "sizes": [
+      "20s Count",
+      "26s Count",
+      "30s Count",
+      "34s Count",
+      "40s Count"
+    ],
+    "colours": [
+      "Greige (Raw)",
+      "Optical White",
+      "Dyed on Request"
+    ],
+    "tags": [
+      "Compact Combed",
+      "Low Hairiness",
+      "Tiruppur Spun"
+    ],
+    "created_at": "2026-08-02T14:06:15.347Z",
+    "is_new_arrival": false
   },
   {
     "product_id": "108",
@@ -162,9 +278,27 @@
       "/images/products/fabric_biowash.jpg",
       "/images/products/fabric_printed.jpg"
     ],
-    "sizes": ["36 inch", "42 inch", "48 inch", "54 inch", "72 inch Open Width"],
-    "colours": ["Navy Blue", "Jet Black", "White", "Melange Grey", "Olive Green", "Maroon"],
-    "tags": ["Bio-Wash", "Zero Lint", "Silicone Softened"],
-    "created_at": "2026-08-12T14:06:15.347Z"
+    "sizes": [
+      "36 inch",
+      "42 inch",
+      "48 inch",
+      "54 inch",
+      "72 inch Open Width"
+    ],
+    "colours": [
+      "Navy Blue",
+      "Jet Black",
+      "White",
+      "Melange Grey",
+      "Olive Green",
+      "Maroon"
+    ],
+    "tags": [
+      "Bio-Wash",
+      "Zero Lint",
+      "Silicone Softened"
+    ],
+    "created_at": "2026-08-12T14:06:15.347Z",
+    "is_new_arrival": false
   }
 ]

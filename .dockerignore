@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+.env
+.env.local
+.vscode
+dist
+README.md
+GOOGLE_HOSTING_GUIDE.md
+FIRESTORE_SETUP_GUIDE.md
+serviceAccountKey.json
+

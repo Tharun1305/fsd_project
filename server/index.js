@@ -1,7 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { initializeSeedData } from './seed.js';
+
+import { isFirestoreConnected } from './firestore.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,6 +22,17 @@ if (db.getProducts().length === 0) {
   initializeSeedData();
 }
 
+// System Health & Database Connection Status
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    app: 'G V Clothings B2B Backend',
+    database: isFirestoreConnected ? 'Google Cloud Firestore (Live)' : 'Local Storage Engine',
+    firestore_connected: isFirestoreConnected,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // REST API Endpoints
 
 // 1. Categories
@@ -21,6 +40,34 @@ app.get('/api/categories', (req, res) => {
   try {
     const cats = db.getCategories();
     res.json({ success: true, data: cats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/categories', (req, res) => {
+  try {
+    const newCat = db.addCategory(req.body);
+    res.status(201).json({ success: true, data: newCat });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/categories/:id', (req, res) => {
+  try {
+    const updated = db.updateCategory(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, message: 'Category not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/categories/:id', (req, res) => {
+  try {
+    db.deleteCategory(req.params.id);
+    res.json({ success: true, message: 'Category deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -35,9 +82,9 @@ app.get('/api/products', (req, res) => {
     if (q) {
       const term = q.toLowerCase().trim();
       products = products.filter(p =>
-        p.product_name.toLowerCase().includes(term) ||
-        p.product_code.toLowerCase().includes(term) ||
-        p.fabric.toLowerCase().includes(term) ||
+        (p.product_name && p.product_name.toLowerCase().includes(term)) ||
+        (p.product_code && p.product_code.toLowerCase().includes(term)) ||
+        (p.fabric && p.fabric.toLowerCase().includes(term)) ||
         (p.description && p.description.toLowerCase().includes(term))
       );
     }
@@ -47,7 +94,7 @@ app.get('/api/products', (req, res) => {
     }
 
     if (fabric && fabric !== 'all') {
-      products = products.filter(p => p.fabric.toLowerCase().includes(fabric.toLowerCase()));
+      products = products.filter(p => p.fabric && p.fabric.toLowerCase().includes(fabric.toLowerCase()));
     }
 
     if (color && color !== 'all') {
@@ -59,7 +106,7 @@ app.get('/api/products', (req, res) => {
     }
 
     if (availability && availability !== 'all') {
-      products = products.filter(p => p.availability.toLowerCase() === availability.toLowerCase());
+      products = products.filter(p => p.availability && p.availability.toLowerCase() === availability.toLowerCase());
     }
 
     if (new_arrivals === 'true') {
@@ -67,7 +114,6 @@ app.get('/api/products', (req, res) => {
     }
 
     if (latest === 'true') {
-      // Sort by creation date descending
       products.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }
 
@@ -83,7 +129,6 @@ app.get('/api/products/:id', (req, res) => {
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    // Also generate similar products (same category or fabric)
     const all = db.getProducts();
     const similar = all.filter(p =>
       String(p.product_id) !== String(product.product_id) &&
@@ -110,7 +155,7 @@ app.put('/api/products/:id', (req, res) => {
   try {
     const updated = db.updateProduct(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Product not found' });
-    res.json({ success: true, message: 'Product updated', data: updated });
+    res.json({ success: true, message: 'Product updated successfully', data: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -146,7 +191,7 @@ app.delete('/api/products/:id', (req, res) => {
   }
 });
 
-// 3. Enquiries
+// 3. Enquiries & Follow-up History
 app.get('/api/enquiries', (req, res) => {
   try {
     const enquiries = db.getEnquiries();
@@ -169,12 +214,45 @@ app.post('/api/enquiries', (req, res) => {
   }
 });
 
-app.patch('/api/enquiries/:id/status', (req, res) => {
+app.put('/api/enquiries/:id', (req, res) => {
   try {
-    const { status } = req.body;
-    const updated = db.updateEnquiryStatus(req.params.id, status);
+    const updated = db.updateEnquiry(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/enquiries/:id/status', (req, res) => {
+  try {
+    const { status, note, author } = req.body;
+    const updated = db.updateEnquiryStatus(req.params.id, status, note, author);
+    if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/enquiries/:id/notes', (req, res) => {
+  try {
+    const { note, author } = req.body;
+    if (!note || !note.trim()) {
+      return res.status(400).json({ success: false, message: 'Note content is required' });
+    }
+    const updated = db.addEnquiryNote(req.params.id, note.trim(), author || 'Admin');
+    if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/enquiries/:id', (req, res) => {
+  try {
+    db.deleteEnquiry(req.params.id);
+    res.json({ success: true, message: 'Enquiry deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -202,6 +280,26 @@ app.post('/api/sample-requests', (req, res) => {
   }
 });
 
+app.patch('/api/sample-requests/:id/status', (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const updated = db.updateSampleRequestStatus(req.params.id, status, notes);
+    if (!updated) return res.status(404).json({ success: false, message: 'Sample request not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/sample-requests/:id', (req, res) => {
+  try {
+    db.deleteSampleRequest(req.params.id);
+    res.json({ success: true, message: 'Sample request deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 5. Callback Requests
 app.get('/api/callback-requests', (req, res) => {
   try {
@@ -224,10 +322,38 @@ app.post('/api/callback-requests', (req, res) => {
   }
 });
 
+app.patch('/api/callback-requests/:id/status', (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const updated = db.updateCallbackRequestStatus(req.params.id, status, notes);
+    if (!updated) return res.status(404).json({ success: false, message: 'Callback request not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/callback-requests/:id', (req, res) => {
+  try {
+    db.deleteCallbackRequest(req.params.id);
+    res.json({ success: true, message: 'Callback request deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 6. Offers & Announcements
 app.get('/api/offers', (req, res) => {
   try {
     res.json({ success: true, data: db.getActiveOffers() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/admin/offers', (req, res) => {
+  try {
+    res.json({ success: true, data: db.getOffers() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -242,9 +368,36 @@ app.post('/api/offers', (req, res) => {
   }
 });
 
+app.put('/api/offers/:id', (req, res) => {
+  try {
+    const updated = db.updateOffer(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, message: 'Offer not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/offers/:id', (req, res) => {
+  try {
+    db.deleteOffer(req.params.id);
+    res.json({ success: true, message: 'Offer deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/announcements', (req, res) => {
   try {
     res.json({ success: true, data: db.getActiveAnnouncements() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/admin/announcements', (req, res) => {
+  try {
+    res.json({ success: true, data: db.getAnnouncements() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -259,12 +412,51 @@ app.post('/api/announcements', (req, res) => {
   }
 });
 
-// 7. Admin Auth
+app.put('/api/announcements/:id', (req, res) => {
+  try {
+    const updated = db.updateAnnouncement(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ success: false, message: 'Announcement not found' });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/announcements/:id', (req, res) => {
+  try {
+    db.deleteAnnouncement(req.params.id);
+    res.json({ success: true, message: 'Announcement deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Activity & Audit History Logs
+app.get('/api/admin/activity-logs', (req, res) => {
+  try {
+    const logs = db.getActivityLogs();
+    res.json({ success: true, data: logs });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 8. Admin Auth
 app.post('/api/login', (req, res) => {
   try {
     const { username, password } = req.body;
-    const admin = db.verifyAdmin(username, password);
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Username and password are required' });
+    }
+    const admin = db.verifyAdmin(username.trim(), password);
     if (admin) {
+      db.logActivity({
+        action: 'ADMIN_LOGIN',
+        entity_type: 'AUTH',
+        entity_id: admin.username,
+        details: `Administrator "${admin.name}" signed in successfully`,
+        user: admin.name
+      });
       res.json({
         success: true,
         token: 'admin-token-' + Date.now(),
@@ -304,7 +496,7 @@ app.get('/api/admin/stats', (req, res) => {
   }
 });
 
-// 8. AI Chatbot Endpoint (Powered by Groq AI)
+// 9. AI Chatbot Endpoint (Powered by Groq AI)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
 
@@ -316,7 +508,6 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Message is required' });
     }
 
-    // Build rich context from live database
     const products = db.getProducts();
     const categories = db.getCategories();
     const offers = db.getActiveOffers();
@@ -326,7 +517,7 @@ app.post('/api/chat', async (req, res) => {
     ).join('\n');
 
     const categoriesSummary = categories.map(c => `- ${c.category_name}: ${c.description}`).join('\n');
-    const offersSummary = offers.map(o => `- ${o.title}: ${o.discount} (Code: ${o.coupon_code})`).join('\n');
+    const offersSummary = offers.map(o => `- ${o.title}: ${o.discount_text || ''} (Code: ${o.coupon_code || ''})`).join('\n');
 
     const systemPrompt = `You are the intelligent B2B Sales & Customer Support AI Assistant for "G V Clothings", a premier textile and fabric manufacturer & wholesale supplier based in Tiruppur, Tamil Nadu, India.
 
@@ -354,7 +545,6 @@ YOUR GUIDELINES:
 4. If a user wants to place an order, negotiate bulk price, or visit the Tiruppur showroom, warmly encourage them to connect on WhatsApp at +91 73390 22308 or submit the Bulk Enquiry / Sample Request form.
 5. Keep responses concise, clear, well-formatted with bullet points and emojis where helpful.`;
 
-    // Construct conversation payload for Groq
     const conversationMessages = [
       { role: 'system', content: systemPrompt },
       ...history.slice(-6).map(h => ({
@@ -367,7 +557,6 @@ YOUR GUIDELINES:
     let aiReply = null;
     let lastError = null;
 
-    // Try models in order
     for (const model of GROQ_MODELS) {
       try {
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -397,7 +586,6 @@ YOUR GUIDELINES:
     }
 
     if (!aiReply) {
-      // Smart local fallback if Groq API is temporarily unreachable
       aiReply = `Thank you for reaching out to G V Clothings Tiruppur! We manufacture 100% Bio-Wash Combed Cotton (180 GSM), Single Jersey (160 GSM), Loop Knit (280 GSM), Interlock (220 GSM), French Terry (240 GSM), Sewing Thread, and Cotton Yarn at true wholesale factory rates (₹85–₹440/Kg). For immediate custom quotes or samples, please message our Tiruppur sales desk on WhatsApp at +91 73390 22308 or visit our showroom at T N K Nagar, Tiruppur.`;
     }
 
@@ -415,7 +603,16 @@ YOUR GUIDELINES:
   }
 });
 
+// Production Static Serving for Google Cloud Run / Google App Engine / Docker
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`G V Clothings API Server running on port ${PORT}`);
 });
-

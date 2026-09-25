@@ -1,5 +1,57 @@
 [
   {
+    "enquiry_id": "ENQ-774869",
+    "customer_name": "Viknesh R S",
+    "company_name": "nedarsana",
+    "mobile": "8220654725",
+    "email": "viknesh2599@gmail.com",
+    "location": "salem",
+    "buyer_type": "Wholesaler",
+    "product_id": "",
+    "product_name": "General Catalogue Enquiry",
+    "quantity": 500,
+    "size": "Assorted (S-XXL)",
+    "colour": "Assorted Colours",
+    "sample_required": true,
+    "message": "ned",
+    "status": "New",
+    "created_at": "2026-09-25T17:36:14.869Z",
+    "history": [
+      {
+        "timestamp": "2026-09-25T17:36:14.869Z",
+        "status": "New",
+        "note": "Enquiry submitted: \"ned\"",
+        "author": "Viknesh R S"
+      }
+    ]
+  },
+  {
+    "enquiry_id": "ENQ-929156",
+    "customer_name": "Viknesh R S",
+    "company_name": "gg",
+    "mobile": "8220654725",
+    "email": "viknesh2599@gmail.com",
+    "location": "salem",
+    "buyer_type": "Wholesaler",
+    "product_id": "101",
+    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "quantity": 200,
+    "size": "Assorted (S-XXL)",
+    "colour": "Assorted Colours",
+    "sample_required": true,
+    "message": "super",
+    "status": "New",
+    "created_at": "2026-09-25T16:32:09.156Z",
+    "history": [
+      {
+        "timestamp": "2026-09-25T16:32:09.156Z",
+        "status": "New",
+        "note": "Enquiry submitted: \"super\"",
+        "author": "Viknesh R S"
+      }
+    ]
+  },
+  {
     "enquiry_id": "ENQ-90124",
     "customer_name": "K. Rajesh Kumar",
     "company_name": "Rajesh Textiles & Wholesalers",
@@ -14,8 +66,16 @@
     "colour": "Floral Patterns (200 Kg), Geometric Designs (200 Kg), Stripe Patterns (100 Kg)",
     "sample_required": true,
     "message": "Planning to visit your Tiruppur unit next Tuesday. Please keep fabric swatch samples ready and confirm best rate for 500 Kg.",
-    "status": "Contacted",
-    "created_at": "2026-08-13T11:06:15.349Z"
+    "status": "Completed",
+    "created_at": "2026-08-13T11:06:15.349Z",
+    "history": [
+      {
+        "timestamp": "2026-08-13T11:06:15.349Z",
+        "status": "Completed",
+        "note": "Enquiry received via website",
+        "author": "Customer"
+      }
+    ]
   },
   {
     "enquiry_id": "ENQ-90119",
@@ -32,8 +92,23 @@
     "colour": "Navy Blue & Maroon",
     "sample_required": false,
     "message": "Need urgent dispatch to Calicut before Onam festival stock rush. Please share transport details from Tirupur.",
-    "status": "New",
-    "created_at": "2026-08-12T10:06:15.349Z"
+    "status": "Contacted",
+    "created_at": "2026-08-12T10:06:15.349Z",
+    "history": [
+      {
+        "timestamp": "2026-09-25T16:25:05.708Z",
+        "status": "Contacted",
+        "note": "Called customer, confirmed stock availability",
+        "author": "Admin"
+      },
+      {
+        "timestamp": "2026-08-12T10:06:15.349Z",
+        "status": "New",
+        "note": "Enquiry received via website",
+        "author": "Customer"
+      }
+    ],
+    "updated_at": "2026-09-25T16:25:05.708Z"
   },
   {
     "enquiry_id": "ENQ-90105",
@@ -51,6 +126,14 @@
     "sample_required": true,
     "message": "Looking for consistent monthly supply of French Terry fabric from Tiruppur unit. Require 1000 Kg monthly for our garment production.",
     "status": "Completed",
-    "created_at": "2026-08-10T14:06:15.349Z"
+    "created_at": "2026-08-10T14:06:15.349Z",
+    "history": [
+      {
+        "timestamp": "2026-08-10T14:06:15.349Z",
+        "status": "Completed",
+        "note": "Enquiry received via website",
+        "author": "Customer"
+      }
+    ]
   }
 ]

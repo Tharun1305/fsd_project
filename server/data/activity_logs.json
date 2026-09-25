@@ -1,0 +1,119 @@
+[
+  {
+    "log_id": "LOG-1790357783169-61",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T17:36:23.169Z"
+  },
+  {
+    "log_id": "LOG-1790357774874-250",
+    "action": "NEW_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-774869",
+    "details": "New enquiry received from Viknesh R S (nedarsana) for 500 Pcs of General Catalogue Enquiry",
+    "user": "Admin",
+    "timestamp": "2026-09-25T17:36:14.874Z"
+  },
+  {
+    "log_id": "LOG-1790357580557-654",
+    "action": "DELETE_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-574735",
+    "details": "Deleted enquiry ENQ-574735 from Firestore Verification Buyer",
+    "user": "Admin",
+    "timestamp": "2026-09-25T17:33:00.557Z"
+  },
+  {
+    "log_id": "LOG-1790357574754-379",
+    "action": "NEW_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-574735",
+    "details": "New enquiry received from Firestore Verification Buyer (Tiruppur Wholesale Direct) for 300 Pcs of Premium Combed Cotton",
+    "user": "Admin",
+    "timestamp": "2026-09-25T17:32:54.754Z"
+  },
+  {
+    "log_id": "LOG-1790355015657-268",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T16:50:15.657Z"
+  },
+  {
+    "log_id": "LOG-1790354702880-397",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T16:45:02.880Z"
+  },
+  {
+    "log_id": "LOG-1790354670269-417",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T16:44:30.269Z"
+  },
+  {
+    "log_id": "LOG-1790354650310-592",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T16:44:10.310Z"
+  },
+  {
+    "log_id": "LOG-1790354545394-468",
+    "action": "ADMIN_LOGIN",
+    "entity_type": "AUTH",
+    "entity_id": "admin",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "user": "Tirupur Admin Owner",
+    "timestamp": "2026-09-25T16:42:25.394Z"
+  },
+  {
+    "log_id": "LOG-1790353929158-833",
+    "action": "NEW_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-929156",
+    "details": "New enquiry received from Viknesh R S (gg) for 200 Pcs of Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "user": "Admin",
+    "timestamp": "2026-09-25T16:32:09.158Z"
+  },
+  {
+    "log_id": "LOG-1790353533939-819",
+    "action": "DELETE_PRODUCT",
+    "entity_type": "PRODUCT",
+    "entity_id": "1790353528294",
+    "details": "Deleted product \"Test Fabric Sample\" (GVF-999)",
+    "user": "Admin",
+    "timestamp": "2026-09-25T16:25:33.939Z"
+  },
+  {
+    "log_id": "LOG-1790353528296-9",
+    "action": "ADD_PRODUCT",
+    "entity_type": "PRODUCT",
+    "entity_id": "1790353528294",
+    "details": "Added new product \"Test Fabric Sample\" (GVF-999) at ₹310 / Kg",
+    "user": "Admin",
+    "timestamp": "2026-09-25T16:25:28.296Z"
+  },
+  {
+    "log_id": "LOG-1790353505711-165",
+    "action": "UPDATE_ENQUIRY_STATUS",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-90119",
+    "details": "Enquiry ENQ-90119 status changed: New -> Contacted (Called customer, confirmed stock availability)",
+    "user": "Admin",
+    "timestamp": "2026-09-25T16:25:05.711Z"
+  }
+]

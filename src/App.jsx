@@ -23,16 +23,28 @@ import { ContactPage } from './pages/ContactPage';
 import { FAQPage } from './pages/FAQPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { useAuth } from './context/AuthContext';
 
 function AppContent() {
+  const { isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [navParams, setNavParams] = useState({});
   const [qrModalOpen, setQrModalOpen] = useState(false);
+
+  // Route guard: if logged out while on admin_dashboard, immediately switch to admin_login
+  React.useEffect(() => {
+    if (currentView === 'admin_dashboard' && !isAuthenticated) {
+      setCurrentView('admin_login');
+      setNavParams({ loggedOut: true });
+    }
+  }, [currentView, isAuthenticated]);
 
   const navigate = (view, params = {}) => {
     if (params.product) setSelectedProduct(params.product);
     if (params.category) setSelectedCategory(params.category);
+    setNavParams(params);
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -111,7 +123,7 @@ function AppContent() {
         {currentView === 'callback_request' && <CallbackRequestPage />}
         {currentView === 'contact' && <ContactPage navigate={navigate} />}
         {currentView === 'faq' && <FAQPage navigate={navigate} />}
-        {currentView === 'admin_login' && <AdminLoginPage navigate={navigate} />}
+        {currentView === 'admin_login' && <AdminLoginPage navigate={navigate} navParams={navParams} />}
         {currentView === 'admin_dashboard' && <AdminDashboardPage navigate={navigate} />}
       </main>
 
