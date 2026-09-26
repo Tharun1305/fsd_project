@@ -1,5 +1,14 @@
 [
   {
+    "log_id": "LOG-1790419359007-846",
+    "action": "NEW_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-359004",
+    "details": "New enquiry received from Viknesh R S (nedarsana) for 500 Pcs of General Catalogue Enquiry",
+    "user": "Admin",
+    "timestamp": "2026-09-26T10:42:39.007Z"
+  },
+  {
     "log_id": "LOG-1790418651043-714",
     "action": "NEW_ENQUIRY",
     "entity_type": "ENQUIRY",

@@ -1,27 +1,27 @@
 [
   {
-    "enquiry_id": "ENQ-651039",
-    "customer_name": "Test Connection",
-    "company_name": "N/A",
-    "mobile": "9876543210",
-    "email": "",
-    "location": "Erode",
+    "enquiry_id": "ENQ-359004",
+    "customer_name": "Viknesh R S",
+    "company_name": "nedarsana",
+    "mobile": "fd",
+    "email": "viknesh2599@gmail.com",
+    "location": "bfd",
     "buyer_type": "Wholesaler",
     "product_id": "",
     "product_name": "General Catalogue Enquiry",
-    "quantity": 100,
+    "quantity": 500,
     "size": "Assorted (S-XXL)",
-    "colour": "Assorted",
+    "colour": "Assorted Colours",
     "sample_required": false,
     "message": "",
     "status": "New",
-    "created_at": "2026-09-26T10:30:51.039Z",
+    "created_at": "2026-09-26T10:42:39.004Z",
     "history": [
       {
-        "timestamp": "2026-09-26T10:30:51.039Z",
+        "timestamp": "2026-09-26T10:42:39.004Z",
         "status": "New",
         "note": "Enquiry submitted via B2B portal",
-        "author": "Test Connection"
+        "author": "Viknesh R S"
       }
     ]
   },
@@ -102,6 +102,32 @@
         "author": "Test Buyer"
       }
     ]
+  },
+  {
+    "quantity": 100,
+    "buyer_type": "Wholesaler",
+    "mobile": "9876543210",
+    "created_at": "2026-09-26T10:30:51.039Z",
+    "history": [
+      {
+        "timestamp": "2026-09-26T10:30:51.039Z",
+        "status": "New",
+        "note": "Enquiry submitted via B2B portal",
+        "author": "Test Connection"
+      }
+    ],
+    "message": "",
+    "product_name": "General Catalogue Enquiry",
+    "colour": "Assorted",
+    "sample_required": false,
+    "size": "Assorted (S-XXL)",
+    "company_name": "N/A",
+    "product_id": "",
+    "location": "Erode",
+    "customer_name": "Test Connection",
+    "enquiry_id": "ENQ-651039",
+    "email": "",
+    "status": "New"
   },
   {
     "quantity": 500,
