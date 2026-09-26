@@ -5,11 +5,15 @@ node_modules/
 dist/
 build/
 
-# Environment variables & secrets
+# Environment variables & secrets (NEVER commit secrets or service accounts to GitHub)
 .env
 .env.*
 !.env.example
 serviceAccountKey.json
+server/serviceAccountKey.json
+*serviceAccount*.json
+*.pem
+*.key
 
 # Logs
 *.log
