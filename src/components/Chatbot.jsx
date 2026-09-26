@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, MessageSquare, MapPin, Package, HelpCircle, Loader2, Sparkles, Phone } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { openWhatsApp } from '../utils/whatsapp';
-import { apiUrl, safeFetch } from '../config/api';
 
 export function Chatbot({ navigate }) {
   const { products, categories, lang, t } = useData();
@@ -30,8 +29,8 @@ export function Chatbot({ navigate }) {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      // 1. Try deployed backend endpoint via VITE_API_URL (or Vite proxy in dev)
-      const { ok, data } = await safeFetch(apiUrl('/api/chat'), {
+      // 1. Try local server endpoint first
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -41,10 +40,13 @@ export function Chatbot({ navigate }) {
         })
       });
 
-      if (ok && data?.reply) {
-        setMessages(prev => [...prev, { sender: 'bot', text: data.reply }]);
-        setIsLoading(false);
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) {
+          setMessages(prev => [...prev, { sender: 'bot', text: data.reply }]);
+          setIsLoading(false);
+          return;
+        }
       }
       throw new Error('Fallback to direct Groq');
     } catch (err) {

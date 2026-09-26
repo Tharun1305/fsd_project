@@ -1,12 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { translations } from '../utils/i18n';
-import { apiUrl, safeFetch } from '../config/api';
 
 const DataContext = createContext();
-
-// Backend connection error message shown to the user
-const BACKEND_ERROR_MSG =
-  'Could not reach the server. Please make sure the backend is running (npm run dev), or contact support.';
 
 export function DataProvider({ children }) {
   const [lang, setLang] = useState('en');
@@ -40,16 +35,16 @@ export function DataProvider({ children }) {
     setLoading(true);
     try {
       const [catRes, prodRes, offerRes, annRes] = await Promise.all([
-        safeFetch(apiUrl('/api/categories')),
-        safeFetch(apiUrl('/api/products')),
-        safeFetch(apiUrl('/api/offers')),
-        safeFetch(apiUrl('/api/announcements'))
+        fetch('/api/categories').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/products').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/offers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/announcements').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
-      if (catRes.data?.success) setCategories(catRes.data.data);
-      if (prodRes.data?.success) setProducts(prodRes.data.data);
-      if (offerRes.data?.success) setOffers(offerRes.data.data);
-      if (annRes.data?.success) setAnnouncements(annRes.data.data);
+      if (catRes.success) setCategories(catRes.data);
+      if (prodRes.success) setProducts(prodRes.data);
+      if (offerRes.success) setOffers(offerRes.data);
+      if (annRes.success) setAnnouncements(annRes.data);
     } catch (err) {
       console.error('Error fetching API data:', err);
     } finally {
@@ -60,22 +55,22 @@ export function DataProvider({ children }) {
   const fetchAdminData = async () => {
     try {
       const [enqRes, smpRes, cbRes, statsRes, logsRes, adminOffRes, adminAnnRes] = await Promise.all([
-        safeFetch(apiUrl('/api/enquiries')),
-        safeFetch(apiUrl('/api/sample-requests')),
-        safeFetch(apiUrl('/api/callback-requests')),
-        safeFetch(apiUrl('/api/admin/stats')),
-        safeFetch(apiUrl('/api/admin/activity-logs')),
-        safeFetch(apiUrl('/api/admin/offers')),
-        safeFetch(apiUrl('/api/admin/announcements'))
+        fetch('/api/enquiries').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/sample-requests').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/callback-requests').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/stats').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/activity-logs').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/offers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/announcements').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
-      if (enqRes.data?.success) setEnquiries(enqRes.data.data);
-      if (smpRes.data?.success) setSampleRequests(smpRes.data.data);
-      if (cbRes.data?.success) setCallbackRequests(cbRes.data.data);
-      if (statsRes.data?.success) setStats(statsRes.data.data);
-      if (logsRes.data?.success) setActivityLogs(logsRes.data.data);
-      if (adminOffRes.data?.success) setAdminOffers(adminOffRes.data.data);
-      if (adminAnnRes.data?.success) setAdminAnnouncements(adminAnnRes.data.data);
+      if (enqRes.success) setEnquiries(enqRes.data);
+      if (smpRes.success) setSampleRequests(smpRes.data);
+      if (cbRes.success) setCallbackRequests(cbRes.data);
+      if (statsRes.success) setStats(statsRes.data);
+      if (logsRes.success) setActivityLogs(logsRes.data);
+      if (adminOffRes.success) setAdminOffers(adminOffRes.data);
+      if (adminAnnRes.success) setAdminAnnouncements(adminAnnRes.data);
     } catch (err) {
       console.error('Error fetching admin data:', err);
     }
@@ -87,76 +82,68 @@ export function DataProvider({ children }) {
 
   const submitEnquiry = async (formData) => {
     try {
-      const { ok, status, data } = await safeFetch(apiUrl('/api/enquiries'), {
+      const res = await fetch('/api/enquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (status === 0 || data === null) {
-        return { success: false, message: BACKEND_ERROR_MSG };
-      }
-      if (data?.success) {
+      const result = await res.json();
+      if (result.success) {
         fetchAdminData();
-        return { success: true, message: data.message, data: data.data };
+        return { success: true, message: result.message, data: result.data };
       }
-      return { success: false, message: data?.error || data?.message || 'Submission failed. Please try again.' };
+      return { success: false, message: result.error || 'Submission failed' };
     } catch (err) {
-      return { success: false, message: BACKEND_ERROR_MSG };
+      return { success: false, message: err.message };
     }
   };
 
   const submitSampleRequest = async (formData) => {
     try {
-      const { status, data } = await safeFetch(apiUrl('/api/sample-requests'), {
+      const res = await fetch('/api/sample-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (status === 0 || data === null) {
-        return { success: false, message: BACKEND_ERROR_MSG };
-      }
-      if (data?.success) {
+      const result = await res.json();
+      if (result.success) {
         fetchAdminData();
-        return { success: true, message: data.message };
+        return { success: true, message: result.message };
       }
-      return { success: false, message: data?.error || data?.message || 'Submission failed. Please try again.' };
+      return { success: false, message: result.error || 'Submission failed' };
     } catch (err) {
-      return { success: false, message: BACKEND_ERROR_MSG };
+      return { success: false, message: err.message };
     }
   };
 
   const submitCallbackRequest = async (formData) => {
     try {
-      const { status, data } = await safeFetch(apiUrl('/api/callback-requests'), {
+      const res = await fetch('/api/callback-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (status === 0 || data === null) {
-        return { success: false, message: BACKEND_ERROR_MSG };
-      }
-      if (data?.success) {
+      const result = await res.json();
+      if (result.success) {
         fetchAdminData();
-        return { success: true, message: data.message };
+        return { success: true, message: result.message };
       }
-      return { success: false, message: data?.error || data?.message || 'Submission failed. Please try again.' };
+      return { success: false, message: result.error || 'Submission failed' };
     } catch (err) {
-      return { success: false, message: BACKEND_ERROR_MSG };
+      return { success: false, message: err.message };
     }
   };
 
   // Admin action helpers
   const updateEnquiryStatus = async (id, status, note = '') => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/enquiries/${id}/status`), {
+      const res = await fetch(`/api/enquiries/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, note })
       });
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true, data: data.data };
       }
@@ -168,12 +155,13 @@ export function DataProvider({ children }) {
 
   const addEnquiryNote = async (id, note) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/enquiries/${id}/notes`), {
+      const res = await fetch(`/api/enquiries/${id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note })
       });
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true, data: data.data };
       }
@@ -185,8 +173,9 @@ export function DataProvider({ children }) {
 
   const deleteEnquiry = async (id) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/enquiries/${id}`), { method: 'DELETE' });
-      if (data?.success) {
+      const res = await fetch(`/api/enquiries/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true };
       }
@@ -198,12 +187,13 @@ export function DataProvider({ children }) {
 
   const updateSampleStatus = async (id, status, notes = '') => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/sample-requests/${id}/status`), {
+      const res = await fetch(`/api/sample-requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes })
       });
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true };
       }
@@ -215,8 +205,9 @@ export function DataProvider({ children }) {
 
   const deleteSampleRequest = async (id) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/sample-requests/${id}`), { method: 'DELETE' });
-      if (data?.success) {
+      const res = await fetch(`/api/sample-requests/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true };
       }
@@ -228,12 +219,13 @@ export function DataProvider({ children }) {
 
   const updateCallbackStatus = async (id, status, notes = '') => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/callback-requests/${id}/status`), {
+      const res = await fetch(`/api/callback-requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes })
       });
-      if (data?.success) {
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true };
       }
@@ -245,8 +237,9 @@ export function DataProvider({ children }) {
 
   const deleteCallbackRequest = async (id) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/callback-requests/${id}`), { method: 'DELETE' });
-      if (data?.success) {
+      const res = await fetch(`/api/callback-requests/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
         fetchAdminData();
         return { success: true };
       }
@@ -258,8 +251,9 @@ export function DataProvider({ children }) {
 
   const deleteOffer = async (id) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/offers/${id}`), { method: 'DELETE' });
-      if (data?.success) {
+      const res = await fetch(`/api/offers/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
         fetchAllData();
         fetchAdminData();
         return { success: true };
@@ -272,8 +266,9 @@ export function DataProvider({ children }) {
 
   const deleteAnnouncement = async (id) => {
     try {
-      const { data } = await safeFetch(apiUrl(`/api/announcements/${id}`), { method: 'DELETE' });
-      if (data?.success) {
+      const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
         fetchAllData();
         fetchAdminData();
         return { success: true };
