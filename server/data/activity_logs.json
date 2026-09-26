@@ -1,5 +1,14 @@
 [
   {
+    "log_id": "LOG-1790408054309-294",
+    "action": "NEW_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-054297",
+    "details": "New enquiry received from tharun (samosaaa) for 500 Pcs of General Catalogue Enquiry",
+    "user": "Admin",
+    "timestamp": "2026-09-26T07:34:14.309Z"
+  },
+  {
     "log_id": "LOG-1790357783169-61",
     "action": "ADMIN_LOGIN",
     "entity_type": "AUTH",

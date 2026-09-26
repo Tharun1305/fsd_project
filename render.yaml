@@ -1,3 +1,20 @@
+# render.yaml — Render.com deployment configuration for G V Clothings B2B Backend
+#
+# REQUIRED ENVIRONMENT SECRETS (set manually in Render Dashboard → Environment):
+#
+#   FIREBASE_SERVICE_ACCOUNT
+#     → Paste the FULL contents of serviceAccountKey.json as a JSON string.
+#     → This is the only Firebase credential needed on Render.
+#     → NEVER commit this value to Git.
+#
+#   GROQ_API_KEY
+#     → Your Groq AI API key for the chatbot endpoint.
+#
+#   ALLOWED_ORIGINS (optional)
+#     → Comma-separated list of allowed frontend URLs, e.g.:
+#       https://gv-clothings.web.app,https://gv-clothings.firebaseapp.com
+#     → Leave unset to allow all origins (useful during initial setup).
+
 services:
   - type: web
     name: gv-clothings-backend
@@ -10,4 +27,12 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 5000
+        value: 10000
+      # The following secrets must be set manually in the Render Dashboard.
+      # Do NOT add their values here — this file is committed to Git.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false   # Set manually in Render Dashboard as an environment secret
+      - key: GROQ_API_KEY
+        sync: false   # Set manually in Render Dashboard as an environment secret
+      - key: ALLOWED_ORIGINS
+        sync: false   # Optional: comma-separated frontend URLs for strict CORS

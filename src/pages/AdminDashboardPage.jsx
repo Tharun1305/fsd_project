@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { apiUrl } from '../config/api';
 
 export function AdminDashboardPage({ navigate }) {
   const {
@@ -317,7 +318,7 @@ export function AdminDashboardPage({ navigate }) {
 
     if (res.success) {
       // Refresh current viewing enquiry with updated data
-      const updatedList = await fetch('/api/enquiries').then(r => r.json());
+      const updatedList = await fetch(apiUrl('/api/enquiries')).then(r => r.json());
       if (updatedList.success) {
         const refreshed = updatedList.data.find(x => x.enquiry_id === viewingEnquiry.enquiry_id);
         if (refreshed) setViewingEnquiry(refreshed);

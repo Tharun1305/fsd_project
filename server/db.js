@@ -1,3 +1,22 @@
+/**
+ * server/db.js
+ *
+ * Unified data-access layer.
+ *
+ * When Firestore is connected (isFirestoreConnected === true):
+ *   - ALL reads come from Firestore (globally shared, real-time).
+ *   - ALL writes go to Firestore first, then update the local JSON file as a
+ *     redundant backup (never as the source of truth).
+ *
+ * When Firestore is NOT connected (local dev without credentials):
+ *   - ALL reads/writes use local JSON files under server/data/.
+ *   - This is purely a convenience fallback for offline development.
+ *
+ * Data flow:
+ *   Write: Firestore (primary) → local JSON (backup)
+ *   Read:  Firestore (primary) → local JSON (fallback)
+ */
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,6 +33,8 @@ if (!fs.existsSync(DATA_DIR)) {
 function getFilePath(filename) {
   return path.join(DATA_DIR, filename);
 }
+
+// ─── Local JSON helpers (used as fallback / backup only) ───────────────────────
 
 export function readData(filename, defaultVal = []) {
   const filepath = getFilePath(filename);
@@ -32,34 +53,83 @@ export function readData(filename, defaultVal = []) {
 
 export function writeData(filename, data) {
   const filepath = getFilePath(filename);
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-// Real-time synchronization helper for Google Cloud Firestore
-function syncFirestore(collection, id, data, isDelete = false) {
-  if (isFirestoreConnected && firestoreDb && id) {
-    try {
-      const docRef = firestoreDb.collection(collection).doc(String(id));
-      if (isDelete) {
-        docRef.delete().catch(err => console.warn(`Firestore delete error [${collection}/${id}]:`, err.message));
-      } else if (data) {
-        docRef.set(data, { merge: true }).catch(err => console.warn(`Firestore sync error [${collection}/${id}]:`, err.message));
-      }
-    } catch (e) {
-      console.warn(`Firestore sync exception [${collection}]:`, e.message);
-    }
+  try {
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn(`Warning: could not write backup file ${filename}:`, err.message);
   }
 }
 
-// Database helper functions
+// ─── Firestore helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Read all documents from a Firestore collection.
+ * Returns null if Firestore is not connected.
+ */
+async function fsReadAll(collection) {
+  if (!isFirestoreConnected || !firestoreDb) return null;
+  try {
+    const snap = await firestoreDb.collection(collection).get();
+    return snap.docs.map(d => d.data());
+  } catch (err) {
+    console.warn(`Firestore read error [${collection}]:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Write (merge) a single document to Firestore.
+ * Fire-and-forget — does not block the response.
+ */
+function fsWrite(collection, id, data) {
+  if (!isFirestoreConnected || !firestoreDb || !id) return;
+  firestoreDb.collection(collection).doc(String(id))
+    .set(data, { merge: true })
+    .catch(err => console.warn(`Firestore write error [${collection}/${id}]:`, err.message));
+}
+
+/**
+ * Delete a single document from Firestore.
+ * Fire-and-forget.
+ */
+function fsDelete(collection, id) {
+  if (!isFirestoreConnected || !firestoreDb || !id) return;
+  firestoreDb.collection(collection).doc(String(id))
+    .delete()
+    .catch(err => console.warn(`Firestore delete error [${collection}/${id}]:`, err.message));
+}
+
+/**
+ * Read all documents from a Firestore collection synchronously-ish via a
+ * cached snapshot.  We use the async version everywhere in the new db object.
+ * This legacy helper keeps backward-compat for code that calls readData() directly.
+ */
+function syncFirestore(collection, id, data, isDelete = false) {
+  if (isDelete) {
+    fsDelete(collection, id);
+  } else if (data) {
+    fsWrite(collection, id, data);
+  }
+}
+
+// ─── Database object ───────────────────────────────────────────────────────────
+
 export const db = {
-  // Activity History & Audit Logs
-  getActivityLogs: () => {
+
+  // ── Activity History & Audit Logs ──────────────────────────────────────────
+
+  getActivityLogs: async () => {
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('activity_logs');
+      if (docs !== null) {
+        return docs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      }
+    }
     return readData('activity_logs.json', []);
   },
+
   logActivity: ({ action, entity_type, entity_id, details, user = 'Admin' }) => {
     try {
-      const logs = readData('activity_logs.json', []);
       const newLog = {
         log_id: 'LOG-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         action,
@@ -69,21 +139,34 @@ export const db = {
         user,
         timestamp: new Date().toISOString()
       };
-      logs.unshift(newLog);
-      if (logs.length > 500) logs.length = 500;
-      writeData('activity_logs.json', logs);
-      syncFirestore('activity_logs', newLog.log_id, newLog);
+      // Write to Firestore (async, fire-and-forget)
+      fsWrite('activity_logs', newLog.log_id, newLog);
+      // Also update local JSON backup
+      try {
+        const logs = readData('activity_logs.json', []);
+        logs.unshift(newLog);
+        if (logs.length > 500) logs.length = 500;
+        writeData('activity_logs.json', logs);
+      } catch (e) { /* ignore backup failures */ }
       return newLog;
     } catch (e) {
       console.error('Failed to log activity:', e);
     }
   },
 
-  // Categories
-  getCategories: () => readData('categories.json'),
+  // ── Categories ─────────────────────────────────────────────────────────────
+
+  getCategories: async () => {
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('categories');
+      if (docs !== null) return docs;
+    }
+    return readData('categories.json');
+  },
+
   saveCategories: (cats) => writeData('categories.json', cats),
-  addCategory: (catData) => {
-    const cats = db.getCategories();
+
+  addCategory: async (catData) => {
     const newId = String(Date.now());
     const newCat = {
       category_id: newId,
@@ -91,39 +174,49 @@ export const db = {
       icon: catData.icon || 'Layers',
       description: catData.description || ''
     };
+    fsWrite('categories', newId, newCat);
+    // Update local backup
+    const cats = readData('categories.json');
     cats.push(newCat);
-    db.saveCategories(cats);
-    syncFirestore('categories', newId, newCat);
+    writeData('categories.json', cats);
     db.logActivity({ action: 'CREATE_CATEGORY', entity_type: 'CATEGORY', entity_id: newId, details: `Category ${newCat.category_name} created` });
     return newCat;
   },
-  updateCategory: (id, updateData) => {
-    const cats = db.getCategories();
+
+  updateCategory: async (id, updateData) => {
+    const cats = await db.getCategories();
     const index = cats.findIndex(c => String(c.category_id) === String(id));
     if (index !== -1) {
       cats[index] = { ...cats[index], ...updateData };
-      db.saveCategories(cats);
-      syncFirestore('categories', id, cats[index]);
+      fsWrite('categories', id, cats[index]);
+      writeData('categories.json', cats);
       db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${cats[index].category_name} updated` });
       return cats[index];
     }
     return null;
   },
-  deleteCategory: (id) => {
-    let cats = db.getCategories();
+
+  deleteCategory: async (id) => {
+    const cats = await db.getCategories();
     const target = cats.find(c => String(c.category_id) === String(id));
-    cats = cats.filter(c => String(c.category_id) !== String(id));
-    db.saveCategories(cats);
-    syncFirestore('categories', id, null, true);
+    const remaining = cats.filter(c => String(c.category_id) !== String(id));
+    writeData('categories.json', remaining);
+    fsDelete('categories', id);
     if (target) {
       db.logActivity({ action: 'DELETE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${target.category_name} deleted` });
     }
     return true;
   },
 
-  // Products
-  getProducts: () => {
-    const prods = readData('products.json');
+  // ── Products ───────────────────────────────────────────────────────────────
+
+  getProducts: async () => {
+    let prods;
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('products');
+      if (docs !== null) prods = docs;
+    }
+    if (!prods) prods = readData('products.json');
     const now = new Date();
     return prods.map(p => {
       const createdDate = new Date(p.created_at || Date.now());
@@ -134,10 +227,16 @@ export const db = {
       };
     });
   },
-  getProductById: (id) => db.getProducts().find(p => String(p.product_id) === String(id)),
+
+  getProductById: async (id) => {
+    const all = await db.getProducts();
+    return all.find(p => String(p.product_id) === String(id));
+  },
+
   saveProducts: (products) => writeData('products.json', products),
-  addProduct: (productData) => {
-    const products = db.getProducts();
+
+  addProduct: async (productData) => {
+    const products = await db.getProducts();
     const newId = Date.now().toString();
     const newProduct = {
       product_id: newId,
@@ -167,8 +266,8 @@ export const db = {
       created_at: new Date().toISOString()
     };
     products.unshift(newProduct);
-    db.saveProducts(products);
-    syncFirestore('products', newId, newProduct);
+    fsWrite('products', newId, newProduct);
+    writeData('products.json', products);
     db.logActivity({
       action: 'ADD_PRODUCT',
       entity_type: 'PRODUCT',
@@ -177,8 +276,9 @@ export const db = {
     });
     return newProduct;
   },
-  updateProduct: (id, updateData) => {
-    const products = db.getProducts();
+
+  updateProduct: async (id, updateData) => {
+    const products = await db.getProducts();
     const index = products.findIndex(p => String(p.product_id) === String(id));
     if (index !== -1) {
       const processed = { ...updateData };
@@ -197,14 +297,13 @@ export const db = {
       if (processed.images && !Array.isArray(processed.images)) {
         processed.images = [processed.images].filter(Boolean);
       }
-
       products[index] = {
         ...products[index],
         ...processed,
         updated_at: new Date().toISOString()
       };
-      db.saveProducts(products);
-      syncFirestore('products', id, products[index]);
+      fsWrite('products', id, products[index]);
+      writeData('products.json', products);
       db.logActivity({
         action: 'UPDATE_PRODUCT',
         entity_type: 'PRODUCT',
@@ -215,12 +314,13 @@ export const db = {
     }
     return null;
   },
-  deleteProduct: (id) => {
-    let products = db.getProducts();
+
+  deleteProduct: async (id) => {
+    const products = await db.getProducts();
     const target = products.find(p => String(p.product_id) === String(id));
-    products = products.filter(p => String(p.product_id) !== String(id));
-    db.saveProducts(products);
-    syncFirestore('products', id, null, true);
+    const remaining = products.filter(p => String(p.product_id) !== String(id));
+    writeData('products.json', remaining);
+    fsDelete('products', id);
     if (target) {
       db.logActivity({
         action: 'DELETE_PRODUCT',
@@ -231,8 +331,9 @@ export const db = {
     }
     return true;
   },
-  duplicateProduct: (id) => {
-    const products = db.getProducts();
+
+  duplicateProduct: async (id) => {
+    const products = await db.getProducts();
     const target = products.find(p => String(p.product_id) === String(id));
     if (!target) return null;
     const newId = Date.now().toString();
@@ -244,8 +345,8 @@ export const db = {
       created_at: new Date().toISOString()
     };
     products.unshift(newProduct);
-    db.saveProducts(products);
-    syncFirestore('products', newId, newProduct);
+    fsWrite('products', newId, newProduct);
+    writeData('products.json', products);
     db.logActivity({
       action: 'DUPLICATE_PRODUCT',
       entity_type: 'PRODUCT',
@@ -255,9 +356,15 @@ export const db = {
     return newProduct;
   },
 
-  // Enquiries & Customer Timeline History
-  getEnquiries: () => {
-    const enquiries = readData('enquiries.json');
+  // ── Enquiries & Customer Timeline ──────────────────────────────────────────
+
+  getEnquiries: async () => {
+    let enquiries;
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('enquiries');
+      if (docs !== null) enquiries = docs;
+    }
+    if (!enquiries) enquiries = readData('enquiries.json');
     return enquiries.map(e => ({
       ...e,
       history: Array.isArray(e.history) ? e.history : [
@@ -270,9 +377,11 @@ export const db = {
       ]
     }));
   },
+
   saveEnquiries: (enquiries) => writeData('enquiries.json', enquiries),
-  addEnquiry: (enquiry) => {
-    const enquiries = db.getEnquiries();
+
+  addEnquiry: async (enquiry) => {
+    const enquiries = await db.getEnquiries();
     const newEnquiryId = 'ENQ-' + Date.now().toString().slice(-6);
     const now = new Date().toISOString();
     const newEnquiry = {
@@ -302,8 +411,8 @@ export const db = {
       ]
     };
     enquiries.unshift(newEnquiry);
-    db.saveEnquiries(enquiries);
-    syncFirestore('enquiries', newEnquiryId, newEnquiry);
+    fsWrite('enquiries', newEnquiryId, newEnquiry);
+    writeData('enquiries.json', enquiries);
     db.logActivity({
       action: 'NEW_ENQUIRY',
       entity_type: 'ENQUIRY',
@@ -312,24 +421,23 @@ export const db = {
     });
     return newEnquiry;
   },
-  updateEnquiryStatus: (id, status, note = '', author = 'Admin') => {
-    const enquiries = db.getEnquiries();
+
+  updateEnquiryStatus: async (id, status, note = '', author = 'Admin') => {
+    const enquiries = await db.getEnquiries();
     const target = enquiries.find(e => String(e.enquiry_id) === String(id));
     if (target) {
       const oldStatus = target.status;
       target.status = status;
       target.updated_at = new Date().toISOString();
-      if (!Array.isArray(target.history)) {
-        target.history = [];
-      }
+      if (!Array.isArray(target.history)) target.history = [];
       target.history.unshift({
         timestamp: new Date().toISOString(),
         status: status,
         note: note || `Status updated from ${oldStatus} to ${status}`,
         author: author
       });
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, target);
+      fsWrite('enquiries', id, target);
+      writeData('enquiries.json', enquiries);
       db.logActivity({
         action: 'UPDATE_ENQUIRY_STATUS',
         entity_type: 'ENQUIRY',
@@ -340,13 +448,12 @@ export const db = {
     }
     return null;
   },
-  addEnquiryNote: (id, note, author = 'Admin') => {
-    const enquiries = db.getEnquiries();
+
+  addEnquiryNote: async (id, note, author = 'Admin') => {
+    const enquiries = await db.getEnquiries();
     const target = enquiries.find(e => String(e.enquiry_id) === String(id));
     if (target) {
-      if (!Array.isArray(target.history)) {
-        target.history = [];
-      }
+      if (!Array.isArray(target.history)) target.history = [];
       target.history.unshift({
         timestamp: new Date().toISOString(),
         status: target.status,
@@ -354,8 +461,8 @@ export const db = {
         author: author
       });
       target.updated_at = new Date().toISOString();
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, target);
+      fsWrite('enquiries', id, target);
+      writeData('enquiries.json', enquiries);
       db.logActivity({
         action: 'ADD_ENQUIRY_NOTE',
         entity_type: 'ENQUIRY',
@@ -366,8 +473,9 @@ export const db = {
     }
     return null;
   },
-  updateEnquiry: (id, updateData) => {
-    const enquiries = db.getEnquiries();
+
+  updateEnquiry: async (id, updateData) => {
+    const enquiries = await db.getEnquiries();
     const index = enquiries.findIndex(e => String(e.enquiry_id) === String(id));
     if (index !== -1) {
       enquiries[index] = {
@@ -375,8 +483,8 @@ export const db = {
         ...updateData,
         updated_at: new Date().toISOString()
       };
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, enquiries[index]);
+      fsWrite('enquiries', id, enquiries[index]);
+      writeData('enquiries.json', enquiries);
       db.logActivity({
         action: 'EDIT_ENQUIRY',
         entity_type: 'ENQUIRY',
@@ -387,12 +495,13 @@ export const db = {
     }
     return null;
   },
-  deleteEnquiry: (id) => {
-    let enquiries = db.getEnquiries();
+
+  deleteEnquiry: async (id) => {
+    const enquiries = await db.getEnquiries();
     const target = enquiries.find(e => String(e.enquiry_id) === String(id));
-    enquiries = enquiries.filter(e => String(e.enquiry_id) !== String(id));
-    db.saveEnquiries(enquiries);
-    syncFirestore('enquiries', id, null, true);
+    const remaining = enquiries.filter(e => String(e.enquiry_id) !== String(id));
+    writeData('enquiries.json', remaining);
+    fsDelete('enquiries', id);
     if (target) {
       db.logActivity({
         action: 'DELETE_ENQUIRY',
@@ -404,11 +513,20 @@ export const db = {
     return true;
   },
 
-  // Sample Requests
-  getSampleRequests: () => readData('sample_requests.json'),
+  // ── Sample Requests ────────────────────────────────────────────────────────
+
+  getSampleRequests: async () => {
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('sample_requests');
+      if (docs !== null) return docs;
+    }
+    return readData('sample_requests.json');
+  },
+
   saveSampleRequests: (list) => writeData('sample_requests.json', list),
-  addSampleRequest: (req) => {
-    const requests = db.getSampleRequests();
+
+  addSampleRequest: async (req) => {
+    const requests = await db.getSampleRequests();
     const newId = 'SMP-' + Date.now().toString().slice(-6);
     const newReq = {
       sample_id: newId,
@@ -424,8 +542,8 @@ export const db = {
       created_at: new Date().toISOString()
     };
     requests.unshift(newReq);
-    db.saveSampleRequests(requests);
-    syncFirestore('sample_requests', newId, newReq);
+    fsWrite('sample_requests', newId, newReq);
+    writeData('sample_requests.json', requests);
     db.logActivity({
       action: 'NEW_SAMPLE_REQUEST',
       entity_type: 'SAMPLE_REQUEST',
@@ -434,15 +552,16 @@ export const db = {
     });
     return newReq;
   },
-  updateSampleRequestStatus: (id, status, notes = '') => {
-    const requests = db.getSampleRequests();
+
+  updateSampleRequestStatus: async (id, status, notes = '') => {
+    const requests = await db.getSampleRequests();
     const target = requests.find(s => String(s.sample_id) === String(id));
     if (target) {
       target.status = status;
       if (notes) target.notes = notes;
       target.updated_at = new Date().toISOString();
-      db.saveSampleRequests(requests);
-      syncFirestore('sample_requests', id, target);
+      fsWrite('sample_requests', id, target);
+      writeData('sample_requests.json', requests);
       db.logActivity({
         action: 'UPDATE_SAMPLE_STATUS',
         entity_type: 'SAMPLE_REQUEST',
@@ -453,20 +572,30 @@ export const db = {
     }
     return null;
   },
-  deleteSampleRequest: (id) => {
-    let list = db.getSampleRequests();
-    list = list.filter(s => String(s.sample_id) !== String(id));
-    db.saveSampleRequests(list);
-    syncFirestore('sample_requests', id, null, true);
+
+  deleteSampleRequest: async (id) => {
+    const list = await db.getSampleRequests();
+    const remaining = list.filter(s => String(s.sample_id) !== String(id));
+    writeData('sample_requests.json', remaining);
+    fsDelete('sample_requests', id);
     db.logActivity({ action: 'DELETE_SAMPLE_REQUEST', entity_type: 'SAMPLE_REQUEST', entity_id: id, details: `Deleted sample request ${id}` });
     return true;
   },
 
-  // Callback Requests
-  getCallbackRequests: () => readData('callback_requests.json'),
+  // ── Callback Requests ──────────────────────────────────────────────────────
+
+  getCallbackRequests: async () => {
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('callback_requests');
+      if (docs !== null) return docs;
+    }
+    return readData('callback_requests.json');
+  },
+
   saveCallbackRequests: (list) => writeData('callback_requests.json', list),
-  addCallbackRequest: (req) => {
-    const list = db.getCallbackRequests();
+
+  addCallbackRequest: async (req) => {
+    const list = await db.getCallbackRequests();
     const newId = 'CB-' + Date.now().toString().slice(-6);
     const newItem = {
       callback_id: newId,
@@ -479,8 +608,8 @@ export const db = {
       created_at: new Date().toISOString()
     };
     list.unshift(newItem);
-    db.saveCallbackRequests(list);
-    syncFirestore('callback_requests', newId, newItem);
+    fsWrite('callback_requests', newId, newItem);
+    writeData('callback_requests.json', list);
     db.logActivity({
       action: 'NEW_CALLBACK_REQUEST',
       entity_type: 'CALLBACK_REQUEST',
@@ -489,15 +618,16 @@ export const db = {
     });
     return newItem;
   },
-  updateCallbackRequestStatus: (id, status, notes = '') => {
-    const list = db.getCallbackRequests();
+
+  updateCallbackRequestStatus: async (id, status, notes = '') => {
+    const list = await db.getCallbackRequests();
     const target = list.find(c => String(c.callback_id) === String(id));
     if (target) {
       target.status = status;
       if (notes) target.notes = notes;
       target.updated_at = new Date().toISOString();
-      db.saveCallbackRequests(list);
-      syncFirestore('callback_requests', id, target);
+      fsWrite('callback_requests', id, target);
+      writeData('callback_requests.json', list);
       db.logActivity({
         action: 'UPDATE_CALLBACK_STATUS',
         entity_type: 'CALLBACK_REQUEST',
@@ -508,30 +638,41 @@ export const db = {
     }
     return null;
   },
-  deleteCallbackRequest: (id) => {
-    let list = db.getCallbackRequests();
-    list = list.filter(c => String(c.callback_id) !== String(id));
-    db.saveCallbackRequests(list);
-    syncFirestore('callback_requests', id, null, true);
+
+  deleteCallbackRequest: async (id) => {
+    const list = await db.getCallbackRequests();
+    const remaining = list.filter(c => String(c.callback_id) !== String(id));
+    writeData('callback_requests.json', remaining);
+    fsDelete('callback_requests', id);
     db.logActivity({ action: 'DELETE_CALLBACK_REQUEST', entity_type: 'CALLBACK_REQUEST', entity_id: id, details: `Deleted callback request ${id}` });
     return true;
   },
 
-  // Offers
-  getOffers: () => {
-    const offers = readData('offers.json');
+  // ── Offers ─────────────────────────────────────────────────────────────────
+
+  getOffers: async () => {
+    let offers;
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('offers');
+      if (docs !== null) offers = docs;
+    }
+    if (!offers) offers = readData('offers.json');
     const today = new Date().toISOString().split('T')[0];
     return offers.map(o => ({
       ...o,
       is_active: !o.expiry_date || o.expiry_date >= today
     }));
   },
-  getActiveOffers: () => {
-    return db.getOffers().filter(o => o.is_active && o.status !== 'Disabled');
+
+  getActiveOffers: async () => {
+    const all = await db.getOffers();
+    return all.filter(o => o.is_active && o.status !== 'Disabled');
   },
+
   saveOffers: (offers) => writeData('offers.json', offers),
-  addOffer: (data) => {
-    const list = db.getOffers();
+
+  addOffer: async (data) => {
+    const list = await db.getOffers();
     const newId = 'OFF-' + Date.now().toString().slice(-5);
     const newItem = {
       offer_id: newId,
@@ -541,97 +682,113 @@ export const db = {
       discount_text: data.discount_text || 'Special Bulk Discount',
       coupon_code: data.coupon_code || '',
       start_date: data.start_date || new Date().toISOString().split('T')[0],
-      expiry_date: data.expiry_date || '2026-12-31',
+      expiry_date: data.expiry_date || '2027-12-31',
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
     list.unshift(newItem);
-    db.saveOffers(list);
-    syncFirestore('offers', newId, newItem);
+    fsWrite('offers', newId, newItem);
+    writeData('offers.json', list);
     db.logActivity({ action: 'ADD_OFFER', entity_type: 'OFFER', entity_id: newId, details: `Created offer "${newItem.title}"` });
     return newItem;
   },
-  updateOffer: (id, updateData) => {
-    const list = db.getOffers();
+
+  updateOffer: async (id, updateData) => {
+    const list = await db.getOffers();
     const index = list.findIndex(o => String(o.offer_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      db.saveOffers(list);
-      syncFirestore('offers', id, list[index]);
+      fsWrite('offers', id, list[index]);
+      writeData('offers.json', list);
       db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Updated offer "${list[index].title}"` });
       return list[index];
     }
     return null;
   },
-  deleteOffer: (id) => {
-    let list = db.getOffers();
+
+  deleteOffer: async (id) => {
+    const list = await db.getOffers();
     const target = list.find(o => String(o.offer_id) === String(id));
-    list = list.filter(o => String(o.offer_id) !== String(id));
-    db.saveOffers(list);
-    syncFirestore('offers', id, null, true);
+    const remaining = list.filter(o => String(o.offer_id) !== String(id));
+    writeData('offers.json', remaining);
+    fsDelete('offers', id);
     if (target) {
       db.logActivity({ action: 'DELETE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Deleted offer "${target.title}"` });
     }
     return true;
   },
 
-  // Announcements
-  getAnnouncements: () => {
-    const list = readData('announcements.json');
+  // ── Announcements ──────────────────────────────────────────────────────────
+
+  getAnnouncements: async () => {
+    let list;
+    if (isFirestoreConnected) {
+      const docs = await fsReadAll('announcements');
+      if (docs !== null) list = docs;
+    }
+    if (!list) list = readData('announcements.json');
     const today = new Date().toISOString().split('T')[0];
     return list.map(a => ({
       ...a,
       is_active: !a.expiry_date || a.expiry_date >= today
     }));
   },
-  getActiveAnnouncements: () => {
-    return db.getAnnouncements().filter(a => a.is_active && a.status !== 'Disabled');
+
+  getActiveAnnouncements: async () => {
+    const all = await db.getAnnouncements();
+    return all.filter(a => a.is_active && a.status !== 'Disabled');
   },
+
   saveAnnouncements: (list) => writeData('announcements.json', list),
-  addAnnouncement: (data) => {
-    const list = db.getAnnouncements();
+
+  addAnnouncement: async (data) => {
+    const list = await db.getAnnouncements();
     const newId = 'ANN-' + Date.now().toString().slice(-5);
     const newItem = {
       announcement_id: newId,
       title: data.title || 'Announcement',
       description: data.description || '',
       badge: data.badge || 'New Collection',
-      expiry_date: data.expiry_date || '2026-12-31',
+      expiry_date: data.expiry_date || '2027-12-31',
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
     list.unshift(newItem);
-    db.saveAnnouncements(list);
-    syncFirestore('announcements', newId, newItem);
+    fsWrite('announcements', newId, newItem);
+    writeData('announcements.json', list);
     db.logActivity({ action: 'ADD_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: newId, details: `Added announcement "${newItem.title}"` });
     return newItem;
   },
-  updateAnnouncement: (id, updateData) => {
-    const list = db.getAnnouncements();
+
+  updateAnnouncement: async (id, updateData) => {
+    const list = await db.getAnnouncements();
     const index = list.findIndex(a => String(a.announcement_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      db.saveAnnouncements(list);
-      syncFirestore('announcements', id, list[index]);
+      fsWrite('announcements', id, list[index]);
+      writeData('announcements.json', list);
       db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Updated announcement "${list[index].title}"` });
       return list[index];
     }
     return null;
   },
-  deleteAnnouncement: (id) => {
-    let list = db.getAnnouncements();
+
+  deleteAnnouncement: async (id) => {
+    const list = await db.getAnnouncements();
     const target = list.find(a => String(a.announcement_id) === String(id));
-    list = list.filter(a => String(a.announcement_id) !== String(id));
-    db.saveAnnouncements(list);
-    syncFirestore('announcements', id, null, true);
+    const remaining = list.filter(a => String(a.announcement_id) !== String(id));
+    writeData('announcements.json', remaining);
+    fsDelete('announcements', id);
     if (target) {
       db.logActivity({ action: 'DELETE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Deleted announcement "${target.title}"` });
     }
     return true;
   },
 
-  // Admin Auth
+  // ── Admin Auth ─────────────────────────────────────────────────────────────
+
   getAdmin: () => readData('admin.json', [{ admin_id: 1, username: 'admin', password_hash: 'admin123', name: 'Tirupur Admin Owner' }]),
+
   verifyAdmin: (username, password) => {
     const admins = db.getAdmin();
     return admins.find(a => a.username === username && a.password_hash === password);
