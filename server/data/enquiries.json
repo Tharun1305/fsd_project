@@ -1,20 +1,34 @@
 [
   {
-    "enquiry_id": "ENQ-054297",
-    "customer_name": "tharun",
-    "company_name": "samosaaa",
-    "mobile": "8940511357",
-    "email": "viknesh2599@gmail.com",
-    "location": "salem",
+    "enquiry_id": "ENQ-651039",
+    "customer_name": "Test Connection",
+    "company_name": "N/A",
+    "mobile": "9876543210",
+    "email": "",
+    "location": "Erode",
     "buyer_type": "Wholesaler",
     "product_id": "",
     "product_name": "General Catalogue Enquiry",
-    "quantity": 500,
+    "quantity": 100,
     "size": "Assorted (S-XXL)",
-    "colour": "Assorted Colours",
+    "colour": "Assorted",
     "sample_required": false,
     "message": "",
     "status": "New",
+    "created_at": "2026-09-26T10:30:51.039Z",
+    "history": [
+      {
+        "timestamp": "2026-09-26T10:30:51.039Z",
+        "status": "New",
+        "note": "Enquiry submitted via B2B portal",
+        "author": "Test Connection"
+      }
+    ]
+  },
+  {
+    "quantity": 500,
+    "buyer_type": "Wholesaler",
+    "mobile": "8940511357",
     "created_at": "2026-09-26T07:34:14.297Z",
     "history": [
       {
@@ -23,24 +37,76 @@
         "note": "Enquiry submitted via B2B portal",
         "author": "tharun"
       }
-    ]
+    ],
+    "message": "",
+    "product_name": "General Catalogue Enquiry",
+    "colour": "Assorted Colours",
+    "sample_required": false,
+    "size": "Assorted (S-XXL)",
+    "company_name": "samosaaa",
+    "product_id": "",
+    "location": "salem",
+    "customer_name": "tharun",
+    "enquiry_id": "ENQ-054297",
+    "email": "viknesh2599@gmail.com",
+    "status": "New"
   },
   {
-    "enquiry_id": "ENQ-774869",
-    "customer_name": "Viknesh R S",
-    "company_name": "nedarsana",
+    "quantity": 500,
+    "buyer_type": "Distributor",
     "mobile": "8220654725",
+    "created_at": "2026-09-26T10:11:49.298Z",
+    "history": [
+      {
+        "timestamp": "2026-09-26T10:11:49.298Z",
+        "status": "New",
+        "note": "Enquiry submitted via B2B portal",
+        "author": "Viknesh R S"
+      }
+    ],
+    "message": "",
+    "product_name": "General Catalogue Enquiry",
+    "colour": "Assorted Colours",
+    "sample_required": true,
+    "size": "Assorted (S-XXL)",
+    "company_name": "v",
+    "product_id": "",
+    "location": "v",
+    "customer_name": "Viknesh R S",
+    "enquiry_id": "ENQ-509298",
     "email": "viknesh2599@gmail.com",
-    "location": "salem",
+    "status": "New"
+  },
+  {
+    "enquiry_id": "ENQ-622168",
+    "customer_name": "Test Buyer",
+    "company_name": "N/A",
+    "mobile": "9876543210",
+    "email": "",
+    "location": "Tiruppur",
     "buyer_type": "Wholesaler",
     "product_id": "",
     "product_name": "General Catalogue Enquiry",
     "quantity": 500,
     "size": "Assorted (S-XXL)",
-    "colour": "Assorted Colours",
-    "sample_required": true,
-    "message": "ned",
+    "colour": "Assorted",
+    "sample_required": false,
+    "message": "Testing Firestore enquiry",
     "status": "New",
+    "created_at": "2026-09-26T07:27:02.168Z",
+    "history": [
+      {
+        "timestamp": "2026-09-26T07:27:02.168Z",
+        "status": "New",
+        "note": "Enquiry submitted: \"Testing Firestore enquiry\"",
+        "author": "Test Buyer"
+      }
+    ]
+  },
+  {
+    "quantity": 500,
+    "buyer_type": "Wholesaler",
+    "mobile": "8220654725",
     "created_at": "2026-09-25T17:36:14.869Z",
     "history": [
       {
@@ -49,76 +115,102 @@
         "note": "Enquiry submitted: \"ned\"",
         "author": "Viknesh R S"
       }
-    ]
-  },
-  {
-    "enquiry_id": "ENQ-929156",
-    "customer_name": "Viknesh R S",
-    "company_name": "gg",
-    "mobile": "8220654725",
-    "email": "viknesh2599@gmail.com",
-    "location": "salem",
-    "buyer_type": "Wholesaler",
-    "product_id": "101",
-    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
-    "quantity": 200,
-    "size": "Assorted (S-XXL)",
+    ],
+    "message": "ned",
+    "product_name": "General Catalogue Enquiry",
     "colour": "Assorted Colours",
     "sample_required": true,
-    "message": "super",
+    "size": "Assorted (S-XXL)",
+    "company_name": "nedarsana",
+    "product_id": "",
+    "location": "salem",
+    "customer_name": "Viknesh R S",
+    "enquiry_id": "ENQ-774869",
+    "email": "viknesh2599@gmail.com",
+    "status": "New"
+  },
+  {
+    "enquiry_id": "ENQ-824815",
+    "customer_name": "Antigravity Verification",
+    "company_name": "Tiruppur Mill",
+    "mobile": "9988776655",
+    "email": "verify@tirupur.com",
+    "location": "Tiruppur",
+    "buyer_type": "Wholesaler",
+    "product_id": "",
+    "product_name": "General Catalogue Enquiry",
+    "quantity": 200,
+    "size": "Assorted (S-XXL)",
+    "colour": "Assorted",
+    "sample_required": false,
+    "message": "Verifying end-to-end enquiry submission",
     "status": "New",
-    "created_at": "2026-09-25T16:32:09.156Z",
+    "created_at": "2026-09-26T07:30:24.815Z",
     "history": [
       {
-        "timestamp": "2026-09-25T16:32:09.156Z",
+        "timestamp": "2026-09-26T07:30:24.815Z",
         "status": "New",
-        "note": "Enquiry submitted: \"super\"",
-        "author": "Viknesh R S"
+        "note": "Enquiry submitted: \"Verifying end-to-end enquiry submission\"",
+        "author": "Antigravity Verification"
       }
     ]
   },
   {
-    "enquiry_id": "ENQ-90124",
-    "customer_name": "K. Rajesh Kumar",
-    "company_name": "Rajesh Textiles & Wholesalers",
-    "mobile": "+91 98421 88320",
-    "email": "rajesh.textiles.kl@gmail.com",
-    "location": "Ernakulam / Kochi, Kerala",
+    "enquiry_id": "ENQ-853267",
+    "customer_name": "Frontend Proxy Test",
+    "company_name": "N/A",
+    "mobile": "9123456780",
+    "email": "",
+    "location": "Tiruppur",
     "buyer_type": "Wholesaler",
-    "product_id": "101",
-    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
-    "quantity": 500,
-    "size": "Assorted (42 inch, 48 inch, 54 inch)",
-    "colour": "Floral Patterns (200 Kg), Geometric Designs (200 Kg), Stripe Patterns (100 Kg)",
-    "sample_required": true,
-    "message": "Planning to visit your Tiruppur unit next Tuesday. Please keep fabric swatch samples ready and confirm best rate for 500 Kg.",
-    "status": "Completed",
-    "created_at": "2026-08-13T11:06:15.349Z",
+    "product_id": "",
+    "product_name": "General Catalogue Enquiry",
+    "quantity": 150,
+    "size": "Assorted (S-XXL)",
+    "colour": "Assorted",
+    "sample_required": false,
+    "message": "Testing submission through port 3000",
+    "status": "New",
+    "created_at": "2026-09-26T07:30:53.267Z",
     "history": [
       {
-        "timestamp": "2026-08-13T11:06:15.349Z",
+        "timestamp": "2026-09-26T07:30:53.267Z",
+        "status": "New",
+        "note": "Enquiry submitted: \"Testing submission through port 3000\"",
+        "author": "Frontend Proxy Test"
+      }
+    ]
+  },
+  {
+    "quantity": 1000,
+    "buyer_type": "Fabric Manufacturer",
+    "mobile": "+91 98860 77412",
+    "created_at": "2026-08-10T14:06:15.349Z",
+    "history": [
+      {
+        "timestamp": "2026-08-10T14:06:15.349Z",
         "status": "Completed",
         "note": "Enquiry received via website",
         "author": "Customer"
       }
-    ]
+    ],
+    "message": "Looking for consistent monthly supply of French Terry fabric from Tiruppur unit. Require 1000 Kg monthly for our garment production.",
+    "product_name": "French Terry Cotton Fabric (GVF-105)",
+    "colour": "Acid Wash Black & Off-White",
+    "sample_required": true,
+    "size": "60 inch Open Width",
+    "company_name": "Vanguard Apparel Brands",
+    "product_id": "105",
+    "location": "Commercial Street, Bangalore, Karnataka",
+    "customer_name": "Anand Rao",
+    "enquiry_id": "ENQ-90105",
+    "email": "anand@vanguardapparel.in",
+    "status": "Completed"
   },
   {
-    "enquiry_id": "ENQ-90119",
-    "customer_name": "Suresh V. Menon",
-    "company_name": "Menon Fabric House",
-    "mobile": "+91 94470 12345",
-    "email": "sureshmenon@gmail.com",
-    "location": "Kozhikode, Kerala",
-    "buyer_type": "Retailer",
-    "product_id": "102",
-    "product_name": "Plain / Normal Single Jersey Cotton Fabric (GVF-102)",
     "quantity": 200,
-    "size": "48 inch, 54 inch",
-    "colour": "Navy Blue & Maroon",
-    "sample_required": false,
-    "message": "Need urgent dispatch to Calicut before Onam festival stock rush. Please share transport details from Tirupur.",
-    "status": "Contacted",
+    "buyer_type": "Retailer",
+    "mobile": "+91 94470 12345",
     "created_at": "2026-08-12T10:06:15.349Z",
     "history": [
       {
@@ -134,32 +226,70 @@
         "author": "Customer"
       }
     ],
-    "updated_at": "2026-09-25T16:25:05.708Z"
+    "message": "Need urgent dispatch to Calicut before Onam festival stock rush. Please share transport details from Tirupur.",
+    "product_name": "Plain / Normal Single Jersey Cotton Fabric (GVF-102)",
+    "colour": "Navy Blue & Maroon",
+    "sample_required": false,
+    "size": "48 inch, 54 inch",
+    "updated_at": "2026-09-25T16:25:05.708Z",
+    "company_name": "Menon Fabric House",
+    "product_id": "102",
+    "location": "Kozhikode, Kerala",
+    "customer_name": "Suresh V. Menon",
+    "enquiry_id": "ENQ-90119",
+    "email": "sureshmenon@gmail.com",
+    "status": "Contacted"
   },
   {
-    "enquiry_id": "ENQ-90105",
-    "customer_name": "Anand Rao",
-    "company_name": "Vanguard Apparel Brands",
-    "mobile": "+91 98860 77412",
-    "email": "anand@vanguardapparel.in",
-    "location": "Commercial Street, Bangalore, Karnataka",
-    "buyer_type": "Fabric Manufacturer",
-    "product_id": "105",
-    "product_name": "French Terry Cotton Fabric (GVF-105)",
-    "quantity": 1000,
-    "size": "60 inch Open Width",
-    "colour": "Acid Wash Black & Off-White",
-    "sample_required": true,
-    "message": "Looking for consistent monthly supply of French Terry fabric from Tiruppur unit. Require 1000 Kg monthly for our garment production.",
-    "status": "Completed",
-    "created_at": "2026-08-10T14:06:15.349Z",
+    "quantity": 500,
+    "buyer_type": "Wholesaler",
+    "mobile": "+91 98421 88320",
+    "created_at": "2026-08-13T11:06:15.349Z",
     "history": [
       {
-        "timestamp": "2026-08-10T14:06:15.349Z",
+        "timestamp": "2026-08-13T11:06:15.349Z",
         "status": "Completed",
         "note": "Enquiry received via website",
         "author": "Customer"
       }
-    ]
+    ],
+    "message": "Planning to visit your Tiruppur unit next Tuesday. Please keep fabric swatch samples ready and confirm best rate for 500 Kg.",
+    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "colour": "Floral Patterns (200 Kg), Geometric Designs (200 Kg), Stripe Patterns (100 Kg)",
+    "sample_required": true,
+    "size": "Assorted (42 inch, 48 inch, 54 inch)",
+    "company_name": "Rajesh Textiles & Wholesalers",
+    "product_id": "101",
+    "location": "Ernakulam / Kochi, Kerala",
+    "customer_name": "K. Rajesh Kumar",
+    "enquiry_id": "ENQ-90124",
+    "email": "rajesh.textiles.kl@gmail.com",
+    "status": "Completed"
+  },
+  {
+    "quantity": 200,
+    "buyer_type": "Wholesaler",
+    "mobile": "8220654725",
+    "created_at": "2026-09-25T16:32:09.156Z",
+    "history": [
+      {
+        "timestamp": "2026-09-25T16:32:09.156Z",
+        "status": "New",
+        "note": "Enquiry submitted: \"super\"",
+        "author": "Viknesh R S"
+      }
+    ],
+    "message": "super",
+    "product_name": "Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "colour": "Assorted Colours",
+    "sample_required": true,
+    "size": "Assorted (S-XXL)",
+    "company_name": "gg",
+    "product_id": "101",
+    "location": "salem",
+    "customer_name": "Viknesh R S",
+    "enquiry_id": "ENQ-929156",
+    "email": "viknesh2599@gmail.com",
+    "status": "New"
   }
 ]
