@@ -22,3 +22,32 @@ export const API_BASE = import.meta.env.VITE_API_URL || '';
 export function apiUrl(path) {
   return `${API_BASE}${path}`;
 }
+
+/**
+ * Safe fetch wrapper — always resolves (never throws).
+ * Returns { ok, status, data } where data is the parsed JSON or null.
+ *
+ * Prevents "Unexpected end of JSON input" crashes when the backend
+ * is unreachable or returns an empty / HTML response.
+ *
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+export async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    let data = null;
+    try {
+      const text = await res.text();
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    return { ok: res.ok, status: res.status, data };
+  } catch (networkErr) {
+    // Network error, CORS block, or server completely unreachable
+    console.warn(`[API] Network error for ${url}:`, networkErr.message);
+    return { ok: false, status: 0, data: null };
+  }
+}
