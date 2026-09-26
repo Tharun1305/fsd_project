@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { translations } from '../utils/i18n';
-import { apiUrl } from '../config/api';
 
 const DataContext = createContext();
 
@@ -36,10 +35,10 @@ export function DataProvider({ children }) {
     setLoading(true);
     try {
       const [catRes, prodRes, offerRes, annRes] = await Promise.all([
-        fetch(apiUrl('/api/categories')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/products')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/offers')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/announcements')).then(r => r.json()).catch(() => ({ success: false }))
+        fetch('/api/categories').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/products').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/offers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/announcements').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (catRes.success) setCategories(catRes.data);
@@ -56,13 +55,13 @@ export function DataProvider({ children }) {
   const fetchAdminData = async () => {
     try {
       const [enqRes, smpRes, cbRes, statsRes, logsRes, adminOffRes, adminAnnRes] = await Promise.all([
-        fetch(apiUrl('/api/enquiries')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/sample-requests')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/callback-requests')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/admin/stats')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/admin/activity-logs')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/admin/offers')).then(r => r.json()).catch(() => ({ success: false })),
-        fetch(apiUrl('/api/admin/announcements')).then(r => r.json()).catch(() => ({ success: false }))
+        fetch('/api/enquiries').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/sample-requests').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/callback-requests').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/stats').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/activity-logs').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/offers').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/announcements').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (enqRes.success) setEnquiries(enqRes.data);
@@ -83,7 +82,7 @@ export function DataProvider({ children }) {
 
   const submitEnquiry = async (formData) => {
     try {
-      const res = await fetch(apiUrl('/api/enquiries'), {
+      const res = await fetch('/api/enquiries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -101,7 +100,7 @@ export function DataProvider({ children }) {
 
   const submitSampleRequest = async (formData) => {
     try {
-      const res = await fetch(apiUrl('/api/sample-requests'), {
+      const res = await fetch('/api/sample-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -119,7 +118,7 @@ export function DataProvider({ children }) {
 
   const submitCallbackRequest = async (formData) => {
     try {
-      const res = await fetch(apiUrl('/api/callback-requests'), {
+      const res = await fetch('/api/callback-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -138,7 +137,7 @@ export function DataProvider({ children }) {
   // Admin action helpers
   const updateEnquiryStatus = async (id, status, note = '') => {
     try {
-      const res = await fetch(apiUrl(`/api/enquiries/${id}/status`), {
+      const res = await fetch(`/api/enquiries/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, note })
@@ -156,7 +155,7 @@ export function DataProvider({ children }) {
 
   const addEnquiryNote = async (id, note) => {
     try {
-      const res = await fetch(apiUrl(`/api/enquiries/${id}/notes`), {
+      const res = await fetch(`/api/enquiries/${id}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note })
@@ -174,7 +173,7 @@ export function DataProvider({ children }) {
 
   const deleteEnquiry = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/enquiries/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/enquiries/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchAdminData();
@@ -188,7 +187,7 @@ export function DataProvider({ children }) {
 
   const updateSampleStatus = async (id, status, notes = '') => {
     try {
-      const res = await fetch(apiUrl(`/api/sample-requests/${id}/status`), {
+      const res = await fetch(`/api/sample-requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes })
@@ -206,7 +205,7 @@ export function DataProvider({ children }) {
 
   const deleteSampleRequest = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/sample-requests/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/sample-requests/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchAdminData();
@@ -220,7 +219,7 @@ export function DataProvider({ children }) {
 
   const updateCallbackStatus = async (id, status, notes = '') => {
     try {
-      const res = await fetch(apiUrl(`/api/callback-requests/${id}/status`), {
+      const res = await fetch(`/api/callback-requests/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, notes })
@@ -238,7 +237,7 @@ export function DataProvider({ children }) {
 
   const deleteCallbackRequest = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/callback-requests/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/callback-requests/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchAdminData();
@@ -252,7 +251,7 @@ export function DataProvider({ children }) {
 
   const deleteOffer = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/offers/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/offers/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchAllData();
@@ -267,7 +266,7 @@ export function DataProvider({ children }) {
 
   const deleteAnnouncement = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/announcements/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchAllData();

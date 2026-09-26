@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { initializeSeedData } from './seed.js';
+
 import { isFirestoreConnected } from './firestore.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,33 +14,21 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for all incoming client requests
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // Initialize seed data if empty
-(async () => {
-  try {
-    const products = await db.getProducts();
-    if (products.length === 0) {
-      initializeSeedData();
-    }
-  } catch (err) {
-    console.warn('Initial seed check notice:', err.message);
-  }
-})();
+if (db.getProducts().length === 0) {
+  initializeSeedData();
+}
 
 // System Health & Database Connection Status
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     app: 'G V Clothings B2B Backend',
-    database: isFirestoreConnected ? 'Google Cloud Firestore (Live)' : 'Local Storage Engine (Fallback)',
+    database: isFirestoreConnected ? 'Google Cloud Firestore (Live)' : 'Local Storage Engine',
     firestore_connected: isFirestoreConnected,
-    mode: isFirestoreConnected ? 'firestore' : 'local_json',
     timestamp: new Date().toISOString()
   });
 });
@@ -47,27 +36,27 @@ app.get('/api/health', (req, res) => {
 // REST API Endpoints
 
 // 1. Categories
-app.get('/api/categories', async (req, res) => {
+app.get('/api/categories', (req, res) => {
   try {
-    const cats = await db.getCategories();
+    const cats = db.getCategories();
     res.json({ success: true, data: cats });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/categories', async (req, res) => {
+app.post('/api/categories', (req, res) => {
   try {
-    const newCat = await db.addCategory(req.body);
+    const newCat = db.addCategory(req.body);
     res.status(201).json({ success: true, data: newCat });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/categories/:id', async (req, res) => {
+app.put('/api/categories/:id', (req, res) => {
   try {
-    const updated = await db.updateCategory(req.params.id, req.body);
+    const updated = db.updateCategory(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Category not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -75,9 +64,9 @@ app.put('/api/categories/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', async (req, res) => {
+app.delete('/api/categories/:id', (req, res) => {
   try {
-    await db.deleteCategory(req.params.id);
+    db.deleteCategory(req.params.id);
     res.json({ success: true, message: 'Category deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -85,9 +74,9 @@ app.delete('/api/categories/:id', async (req, res) => {
 });
 
 // 2. Products (with multi-filter, live search, and sorting)
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', (req, res) => {
   try {
-    let products = await db.getProducts();
+    let products = db.getProducts();
     const { q, category, fabric, color, size, availability, new_arrivals, latest } = req.query;
 
     if (q) {
@@ -134,13 +123,13 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-app.get('/api/products/:id', async (req, res) => {
+app.get('/api/products/:id', (req, res) => {
   try {
-    const product = await db.getProductById(req.params.id);
+    const product = db.getProductById(req.params.id);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    const all = await db.getProducts();
+    const all = db.getProducts();
     const similar = all.filter(p =>
       String(p.product_id) !== String(product.product_id) &&
       (String(p.category_id) === String(product.category_id) || p.fabric === product.fabric)
@@ -153,18 +142,18 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // Admin Product Management
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', (req, res) => {
   try {
-    const newProduct = await db.addProduct(req.body);
+    const newProduct = db.addProduct(req.body);
     res.status(201).json({ success: true, message: 'Product added successfully', data: newProduct });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id', (req, res) => {
   try {
-    const updated = await db.updateProduct(req.params.id, req.body);
+    const updated = db.updateProduct(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product updated successfully', data: updated });
   } catch (err) {
@@ -172,10 +161,10 @@ app.put('/api/products/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/products/:id/quick-update', async (req, res) => {
+app.patch('/api/products/:id/quick-update', (req, res) => {
   try {
     const { price, moq, availability } = req.body;
-    const updated = await db.updateProduct(req.params.id, { price, moq: Number(moq), availability });
+    const updated = db.updateProduct(req.params.id, { price, moq: Number(moq), availability });
     if (!updated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Quick update successful', data: updated });
   } catch (err) {
@@ -183,9 +172,9 @@ app.patch('/api/products/:id/quick-update', async (req, res) => {
   }
 });
 
-app.post('/api/products/:id/duplicate', async (req, res) => {
+app.post('/api/products/:id/duplicate', (req, res) => {
   try {
-    const duplicated = await db.duplicateProduct(req.params.id);
+    const duplicated = db.duplicateProduct(req.params.id);
     if (!duplicated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product duplicated successfully', data: duplicated });
   } catch (err) {
@@ -193,9 +182,9 @@ app.post('/api/products/:id/duplicate', async (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', (req, res) => {
   try {
-    await db.deleteProduct(req.params.id);
+    db.deleteProduct(req.params.id);
     res.json({ success: true, message: 'Product deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -203,18 +192,18 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // 3. Enquiries & Follow-up History
-app.get('/api/enquiries', async (req, res) => {
+app.get('/api/enquiries', (req, res) => {
   try {
-    const enquiries = await db.getEnquiries();
+    const enquiries = db.getEnquiries();
     res.json({ success: true, data: enquiries });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/enquiries', async (req, res) => {
+app.post('/api/enquiries', (req, res) => {
   try {
-    const enquiry = await db.addEnquiry(req.body);
+    const enquiry = db.addEnquiry(req.body);
     res.status(201).json({
       success: true,
       message: 'Thank you. Your bulk enquiry has been received. Our team will contact you shortly.',
@@ -225,9 +214,9 @@ app.post('/api/enquiries', async (req, res) => {
   }
 });
 
-app.put('/api/enquiries/:id', async (req, res) => {
+app.put('/api/enquiries/:id', (req, res) => {
   try {
-    const updated = await db.updateEnquiry(req.params.id, req.body);
+    const updated = db.updateEnquiry(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -235,10 +224,10 @@ app.put('/api/enquiries/:id', async (req, res) => {
   }
 });
 
-app.patch('/api/enquiries/:id/status', async (req, res) => {
+app.patch('/api/enquiries/:id/status', (req, res) => {
   try {
     const { status, note, author } = req.body;
-    const updated = await db.updateEnquiryStatus(req.params.id, status, note, author);
+    const updated = db.updateEnquiryStatus(req.params.id, status, note, author);
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -246,13 +235,13 @@ app.patch('/api/enquiries/:id/status', async (req, res) => {
   }
 });
 
-app.post('/api/enquiries/:id/notes', async (req, res) => {
+app.post('/api/enquiries/:id/notes', (req, res) => {
   try {
     const { note, author } = req.body;
     if (!note || !note.trim()) {
       return res.status(400).json({ success: false, message: 'Note content is required' });
     }
-    const updated = await db.addEnquiryNote(req.params.id, note.trim(), author || 'Admin');
+    const updated = db.addEnquiryNote(req.params.id, note.trim(), author || 'Admin');
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -260,9 +249,9 @@ app.post('/api/enquiries/:id/notes', async (req, res) => {
   }
 });
 
-app.delete('/api/enquiries/:id', async (req, res) => {
+app.delete('/api/enquiries/:id', (req, res) => {
   try {
-    await db.deleteEnquiry(req.params.id);
+    db.deleteEnquiry(req.params.id);
     res.json({ success: true, message: 'Enquiry deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -270,18 +259,17 @@ app.delete('/api/enquiries/:id', async (req, res) => {
 });
 
 // 4. Sample Requests
-app.get('/api/sample-requests', async (req, res) => {
+app.get('/api/sample-requests', (req, res) => {
   try {
-    const data = await db.getSampleRequests();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getSampleRequests() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/sample-requests', async (req, res) => {
+app.post('/api/sample-requests', (req, res) => {
   try {
-    const sampleReq = await db.addSampleRequest(req.body);
+    const sampleReq = db.addSampleRequest(req.body);
     res.status(201).json({
       success: true,
       message: 'Sample request submitted successfully. Our Tiruppur dispatch coordinator will call you.',
@@ -292,10 +280,10 @@ app.post('/api/sample-requests', async (req, res) => {
   }
 });
 
-app.patch('/api/sample-requests/:id/status', async (req, res) => {
+app.patch('/api/sample-requests/:id/status', (req, res) => {
   try {
     const { status, notes } = req.body;
-    const updated = await db.updateSampleRequestStatus(req.params.id, status, notes);
+    const updated = db.updateSampleRequestStatus(req.params.id, status, notes);
     if (!updated) return res.status(404).json({ success: false, message: 'Sample request not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -303,9 +291,9 @@ app.patch('/api/sample-requests/:id/status', async (req, res) => {
   }
 });
 
-app.delete('/api/sample-requests/:id', async (req, res) => {
+app.delete('/api/sample-requests/:id', (req, res) => {
   try {
-    await db.deleteSampleRequest(req.params.id);
+    db.deleteSampleRequest(req.params.id);
     res.json({ success: true, message: 'Sample request deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -313,18 +301,17 @@ app.delete('/api/sample-requests/:id', async (req, res) => {
 });
 
 // 5. Callback Requests
-app.get('/api/callback-requests', async (req, res) => {
+app.get('/api/callback-requests', (req, res) => {
   try {
-    const data = await db.getCallbackRequests();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getCallbackRequests() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/callback-requests', async (req, res) => {
+app.post('/api/callback-requests', (req, res) => {
   try {
-    const cb = await db.addCallbackRequest(req.body);
+    const cb = db.addCallbackRequest(req.body);
     res.status(201).json({
       success: true,
       message: 'Callback request received. We will call you at your preferred time.',
@@ -335,10 +322,10 @@ app.post('/api/callback-requests', async (req, res) => {
   }
 });
 
-app.patch('/api/callback-requests/:id/status', async (req, res) => {
+app.patch('/api/callback-requests/:id/status', (req, res) => {
   try {
     const { status, notes } = req.body;
-    const updated = await db.updateCallbackRequestStatus(req.params.id, status, notes);
+    const updated = db.updateCallbackRequestStatus(req.params.id, status, notes);
     if (!updated) return res.status(404).json({ success: false, message: 'Callback request not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -346,9 +333,9 @@ app.patch('/api/callback-requests/:id/status', async (req, res) => {
   }
 });
 
-app.delete('/api/callback-requests/:id', async (req, res) => {
+app.delete('/api/callback-requests/:id', (req, res) => {
   try {
-    await db.deleteCallbackRequest(req.params.id);
+    db.deleteCallbackRequest(req.params.id);
     res.json({ success: true, message: 'Callback request deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -356,36 +343,34 @@ app.delete('/api/callback-requests/:id', async (req, res) => {
 });
 
 // 6. Offers & Announcements
-app.get('/api/offers', async (req, res) => {
+app.get('/api/offers', (req, res) => {
   try {
-    const data = await db.getActiveOffers();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getActiveOffers() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/admin/offers', async (req, res) => {
+app.get('/api/admin/offers', (req, res) => {
   try {
-    const data = await db.getOffers();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getOffers() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/offers', async (req, res) => {
+app.post('/api/offers', (req, res) => {
   try {
-    const offer = await db.addOffer(req.body);
+    const offer = db.addOffer(req.body);
     res.status(201).json({ success: true, data: offer });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/offers/:id', async (req, res) => {
+app.put('/api/offers/:id', (req, res) => {
   try {
-    const updated = await db.updateOffer(req.params.id, req.body);
+    const updated = db.updateOffer(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Offer not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -393,45 +378,43 @@ app.put('/api/offers/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/offers/:id', async (req, res) => {
+app.delete('/api/offers/:id', (req, res) => {
   try {
-    await db.deleteOffer(req.params.id);
+    db.deleteOffer(req.params.id);
     res.json({ success: true, message: 'Offer deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/announcements', async (req, res) => {
+app.get('/api/announcements', (req, res) => {
   try {
-    const data = await db.getActiveAnnouncements();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getActiveAnnouncements() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/admin/announcements', async (req, res) => {
+app.get('/api/admin/announcements', (req, res) => {
   try {
-    const data = await db.getAnnouncements();
-    res.json({ success: true, data });
+    res.json({ success: true, data: db.getAnnouncements() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/announcements', async (req, res) => {
+app.post('/api/announcements', (req, res) => {
   try {
-    const ann = await db.addAnnouncement(req.body);
+    const ann = db.addAnnouncement(req.body);
     res.status(201).json({ success: true, data: ann });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/announcements/:id', async (req, res) => {
+app.put('/api/announcements/:id', (req, res) => {
   try {
-    const updated = await db.updateAnnouncement(req.params.id, req.body);
+    const updated = db.updateAnnouncement(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Announcement not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -439,9 +422,9 @@ app.put('/api/announcements/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/announcements/:id', async (req, res) => {
+app.delete('/api/announcements/:id', (req, res) => {
   try {
-    await db.deleteAnnouncement(req.params.id);
+    db.deleteAnnouncement(req.params.id);
     res.json({ success: true, message: 'Announcement deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -449,9 +432,9 @@ app.delete('/api/announcements/:id', async (req, res) => {
 });
 
 // 7. Activity & Audit History Logs
-app.get('/api/admin/activity-logs', async (req, res) => {
+app.get('/api/admin/activity-logs', (req, res) => {
   try {
-    const logs = await db.getActivityLogs();
+    const logs = db.getActivityLogs();
     res.json({ success: true, data: logs });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -459,15 +442,15 @@ app.get('/api/admin/activity-logs', async (req, res) => {
 });
 
 // 8. Admin Auth
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
-    const admin = await db.verifyAdmin(username.trim(), password);
+    const admin = db.verifyAdmin(username.trim(), password);
     if (admin) {
-      await db.logActivity({
+      db.logActivity({
         action: 'ADMIN_LOGIN',
         entity_type: 'AUTH',
         entity_id: admin.username,
@@ -488,15 +471,13 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Admin Stats Endpoint
-app.get('/api/admin/stats', async (req, res) => {
+app.get('/api/admin/stats', (req, res) => {
   try {
-    const [products, enquiries, samples, callbacks, offers] = await Promise.all([
-      db.getProducts(),
-      db.getEnquiries(),
-      db.getSampleRequests(),
-      db.getCallbackRequests(),
-      db.getActiveOffers()
-    ]);
+    const products = db.getProducts();
+    const enquiries = db.getEnquiries();
+    const samples = db.getSampleRequests();
+    const callbacks = db.getCallbackRequests();
+    const offers = db.getActiveOffers();
 
     res.json({
       success: true,
@@ -527,11 +508,9 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Message is required' });
     }
 
-    const [products, categories, offers] = await Promise.all([
-      db.getProducts(),
-      db.getCategories(),
-      db.getActiveOffers()
-    ]);
+    const products = db.getProducts();
+    const categories = db.getCategories();
+    const offers = db.getActiveOffers();
 
     const catalogSummary = products.map(p => 
       `- [Code: ${p.product_code}] ${p.product_name} (${p.fabric}, ${p.gsm}) | Price: ${p.price} | MOQ: ${p.moq} ${p.unit || 'Kg'} | Status: ${p.availability} | Colors: ${(p.colours || []).join(', ')}`
@@ -636,5 +615,4 @@ if (fs.existsSync(distPath)) {
 
 app.listen(PORT, () => {
   console.log(`G V Clothings API Server running on port ${PORT}`);
-  console.log(`Live Database Engine: ${isFirestoreConnected ? 'Google Cloud Firestore' : 'Local Data Storage'}`);
 });

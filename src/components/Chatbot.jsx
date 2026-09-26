@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, MessageSquare, MapPin, Package, HelpCircle, Loader2, Sparkles, Phone } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { openWhatsApp } from '../utils/whatsapp';
-import { apiUrl } from '../config/api';
 
 export function Chatbot({ navigate }) {
   const { products, categories, lang, t } = useData();
@@ -30,8 +29,8 @@ export function Chatbot({ navigate }) {
     setMessages(prev => [...prev, userMessage]);
 
     try {
-      // 1. Try server endpoint first
-      const res = await fetch(apiUrl('/api/chat'), {
+      // 1. Try local server endpoint first
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

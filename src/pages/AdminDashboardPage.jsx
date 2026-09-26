@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { apiUrl } from '../config/api';
 
 export function AdminDashboardPage({ navigate }) {
   const {
@@ -209,7 +208,7 @@ export function AdminDashboardPage({ navigate }) {
     setSavingProduct(true);
     try {
       const method = editingProduct ? 'PUT' : 'POST';
-      const url = editingProduct ? apiUrl(`/api/products/${editingProduct.product_id}`) : apiUrl('/api/products');
+      const url = editingProduct ? `/api/products/${editingProduct.product_id}` : '/api/products';
       const payload = {
         ...prodForm,
         moq: Number(prodForm.moq) || 0,
@@ -242,7 +241,7 @@ export function AdminDashboardPage({ navigate }) {
 
   const handleDuplicateProduct = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/products/${id}/duplicate`), { method: 'POST' });
+      const res = await fetch(`/api/products/${id}/duplicate`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         await Promise.all([fetchAllData(), fetchAdminData()]);
@@ -256,7 +255,7 @@ export function AdminDashboardPage({ navigate }) {
   const handleDeleteProduct = async (id, name) => {
     if (!window.confirm(`Are you sure you want to permanently delete "${name}"?`)) return;
     try {
-      const res = await fetch(apiUrl(`/api/products/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         await Promise.all([fetchAllData(), fetchAdminData()]);
@@ -275,7 +274,7 @@ export function AdminDashboardPage({ navigate }) {
 
   const handleSaveQuickEdit = async (id) => {
     try {
-      const res = await fetch(apiUrl(`/api/products/${id}/quick-update`), {
+      const res = await fetch(`/api/products/${id}/quick-update`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(quickData)
@@ -318,7 +317,7 @@ export function AdminDashboardPage({ navigate }) {
 
     if (res.success) {
       // Refresh current viewing enquiry with updated data
-      const updatedList = await fetch(apiUrl('/api/enquiries')).then(r => r.json());
+      const updatedList = await fetch('/api/enquiries').then(r => r.json());
       if (updatedList.success) {
         const refreshed = updatedList.data.find(x => x.enquiry_id === viewingEnquiry.enquiry_id);
         if (refreshed) setViewingEnquiry(refreshed);
@@ -341,7 +340,7 @@ export function AdminDashboardPage({ navigate }) {
   const handleSaveOffer = async (e) => {
     e.preventDefault();
     try {
-      const url = editingOffer ? apiUrl(`/api/offers/${editingOffer.offer_id}`) : apiUrl('/api/offers');
+      const url = editingOffer ? `/api/offers/${editingOffer.offer_id}` : '/api/offers';
       const method = editingOffer ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -370,7 +369,7 @@ export function AdminDashboardPage({ navigate }) {
   const handleSaveAnnouncement = async (e) => {
     e.preventDefault();
     try {
-      const url = editingAnn ? apiUrl(`/api/announcements/${editingAnn.announcement_id}`) : apiUrl('/api/announcements');
+      const url = editingAnn ? `/api/announcements/${editingAnn.announcement_id}` : '/api/announcements';
       const method = editingAnn ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,

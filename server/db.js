@@ -18,9 +18,7 @@ function getFilePath(filename) {
 export function readData(filename, defaultVal = []) {
   const filepath = getFilePath(filename);
   if (!fs.existsSync(filepath)) {
-    try {
-      fs.writeFileSync(filepath, JSON.stringify(defaultVal, null, 2), 'utf-8');
-    } catch (_) {}
+    fs.writeFileSync(filepath, JSON.stringify(defaultVal, null, 2), 'utf-8');
     return defaultVal;
   }
   try {
@@ -33,34 +31,35 @@ export function readData(filename, defaultVal = []) {
 }
 
 export function writeData(filename, data) {
-  try {
-    const filepath = getFilePath(filename);
-    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn(`Local file write warning for ${filename}:`, err.message);
+  const filepath = getFilePath(filename);
+  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// Real-time synchronization helper for Google Cloud Firestore
+function syncFirestore(collection, id, data, isDelete = false) {
+  if (isFirestoreConnected && firestoreDb && id) {
+    try {
+      const docRef = firestoreDb.collection(collection).doc(String(id));
+      if (isDelete) {
+        docRef.delete().catch(err => console.warn(`Firestore delete error [${collection}/${id}]:`, err.message));
+      } else if (data) {
+        docRef.set(data, { merge: true }).catch(err => console.warn(`Firestore sync error [${collection}/${id}]:`, err.message));
+      }
+    } catch (e) {
+      console.warn(`Firestore sync exception [${collection}]:`, e.message);
+    }
   }
 }
 
-// Database Layer: Google Cloud Firestore is the PRIMARY production data store.
-// Local JSON store acts only as an offline development fallback.
+// Database helper functions
 export const db = {
   // Activity History & Audit Logs
-  getActivityLogs: async () => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('activity_logs').get();
-        const logs = snap.docs.map(doc => ({ log_id: doc.id, ...doc.data() }));
-        logs.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
-        return logs.slice(0, 200);
-      } catch (e) {
-        console.warn('Firestore getActivityLogs error:', e.message);
-      }
-    }
+  getActivityLogs: () => {
     return readData('activity_logs.json', []);
   },
-
-  logActivity: async ({ action, entity_type, entity_id, details, user = 'Admin' }) => {
+  logActivity: ({ action, entity_type, entity_id, details, user = 'Admin' }) => {
     try {
+      const logs = readData('activity_logs.json', []);
       const newLog = {
         log_id: 'LOG-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         action,
@@ -70,19 +69,10 @@ export const db = {
         user,
         timestamp: new Date().toISOString()
       };
-
-      if (isFirestoreConnected && firestoreDb) {
-        try {
-          await firestoreDb.collection('activity_logs').doc(newLog.log_id).set(newLog);
-        } catch (err) {
-          console.warn('Firestore logActivity write error:', err.message);
-        }
-      } else {
-        const logs = readData('activity_logs.json', []);
-        logs.unshift(newLog);
-        if (logs.length > 500) logs.length = 500;
-        writeData('activity_logs.json', logs);
-      }
+      logs.unshift(newLog);
+      if (logs.length > 500) logs.length = 500;
+      writeData('activity_logs.json', logs);
+      syncFirestore('activity_logs', newLog.log_id, newLog);
       return newLog;
     } catch (e) {
       console.error('Failed to log activity:', e);
@@ -90,113 +80,50 @@ export const db = {
   },
 
   // Categories
-  getCategories: async () => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('categories').get();
-        if (!snap.empty) {
-          const list = snap.docs.map(doc => ({ category_id: doc.id, ...doc.data() }));
-          list.sort((a, b) => (Number(a.category_id) || 0) - (Number(b.category_id) || 0));
-          return list;
-        }
-      } catch (e) {
-        console.warn('Firestore getCategories error:', e.message);
-      }
-    }
-    return readData('categories.json', []);
-  },
-
-  saveCategories: async (cats) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        cats.forEach(c => {
-          const docRef = firestoreDb.collection('categories').doc(String(c.category_id));
-          batch.set(docRef, c, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveCategories error:', e.message);
-      }
-    }
-    writeData('categories.json', cats);
-  },
-
-  addCategory: async (catData) => {
-    const newId = String(catData.category_id || Date.now());
+  getCategories: () => readData('categories.json'),
+  saveCategories: (cats) => writeData('categories.json', cats),
+  addCategory: (catData) => {
+    const cats = db.getCategories();
+    const newId = String(Date.now());
     const newCat = {
       category_id: newId,
       category_name: catData.category_name || 'New Category',
       icon: catData.icon || 'Layers',
       description: catData.description || ''
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('categories').doc(newId).set(newCat, { merge: true });
-    } else {
-      const cats = readData('categories.json', []);
-      cats.push(newCat);
-      writeData('categories.json', cats);
-    }
-
-    await db.logActivity({ action: 'CREATE_CATEGORY', entity_type: 'CATEGORY', entity_id: newId, details: `Category ${newCat.category_name} created` });
+    cats.push(newCat);
+    db.saveCategories(cats);
+    syncFirestore('categories', newId, newCat);
+    db.logActivity({ action: 'CREATE_CATEGORY', entity_type: 'CATEGORY', entity_id: newId, details: `Category ${newCat.category_name} created` });
     return newCat;
   },
-
-  updateCategory: async (id, updateData) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('categories').doc(cleanId);
-      await docRef.set(updateData, { merge: true });
-      const snap = await docRef.get();
-      const updated = { category_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: cleanId, details: `Category ${updated.category_name || cleanId} updated` });
-      return updated;
-    }
-
-    const cats = readData('categories.json', []);
-    const index = cats.findIndex(c => String(c.category_id) === cleanId);
+  updateCategory: (id, updateData) => {
+    const cats = db.getCategories();
+    const index = cats.findIndex(c => String(c.category_id) === String(id));
     if (index !== -1) {
       cats[index] = { ...cats[index], ...updateData };
-      writeData('categories.json', cats);
-      await db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: cleanId, details: `Category ${cats[index].category_name} updated` });
+      db.saveCategories(cats);
+      syncFirestore('categories', id, cats[index]);
+      db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${cats[index].category_name} updated` });
       return cats[index];
     }
     return null;
   },
-
-  deleteCategory: async (id) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('categories').doc(cleanId).delete();
-    } else {
-      let cats = readData('categories.json', []);
-      cats = cats.filter(c => String(c.category_id) !== cleanId);
-      writeData('categories.json', cats);
+  deleteCategory: (id) => {
+    let cats = db.getCategories();
+    const target = cats.find(c => String(c.category_id) === String(id));
+    cats = cats.filter(c => String(c.category_id) !== String(id));
+    db.saveCategories(cats);
+    syncFirestore('categories', id, null, true);
+    if (target) {
+      db.logActivity({ action: 'DELETE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${target.category_name} deleted` });
     }
-    await db.logActivity({ action: 'DELETE_CATEGORY', entity_type: 'CATEGORY', entity_id: cleanId, details: `Category ${cleanId} deleted` });
     return true;
   },
 
   // Products
-  getProducts: async () => {
-    let prods = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('products').get();
-        if (!snap.empty) {
-          prods = snap.docs.map(doc => ({ product_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getProducts error:', e.message);
-      }
-    }
-
-    if (prods.length === 0) {
-      prods = readData('products.json', []);
-    }
-
+  getProducts: () => {
+    const prods = readData('products.json');
     const now = new Date();
     return prods.map(p => {
       const createdDate = new Date(p.created_at || Date.now());
@@ -207,49 +134,11 @@ export const db = {
       };
     });
   },
-
-  getProductById: async (id) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const doc = await firestoreDb.collection('products').doc(cleanId).get();
-        if (doc.exists) {
-          const p = { product_id: doc.id, ...doc.data() };
-          const now = new Date();
-          const createdDate = new Date(p.created_at || Date.now());
-          const ageDays = (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24);
-          return {
-            ...p,
-            is_new_arrival: p.is_new_arrival !== undefined ? p.is_new_arrival : (ageDays <= (p.new_arrival_days || 30))
-          };
-        }
-      } catch (e) {
-        console.warn('Firestore getProductById error:', e.message);
-      }
-    }
-    const all = await db.getProducts();
-    return all.find(p => String(p.product_id) === cleanId) || null;
-  },
-
-  saveProducts: async (products) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        products.forEach(p => {
-          const docRef = firestoreDb.collection('products').doc(String(p.product_id));
-          batch.set(docRef, p, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveProducts error:', e.message);
-      }
-    }
-    writeData('products.json', products);
-  },
-
-  addProduct: async (productData) => {
-    const newId = String(productData.product_id || Date.now());
+  getProductById: (id) => db.getProducts().find(p => String(p.product_id) === String(id)),
+  saveProducts: (products) => writeData('products.json', products),
+  addProduct: (productData) => {
+    const products = db.getProducts();
+    const newId = Date.now().toString();
     const newProduct = {
       product_id: newId,
       product_name: productData.product_name || 'New Product',
@@ -277,16 +166,10 @@ export const db = {
       is_new_arrival: productData.is_new_arrival !== undefined ? Boolean(productData.is_new_arrival) : true,
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('products').doc(newId).set(newProduct, { merge: true });
-    } else {
-      const products = readData('products.json', []);
-      products.unshift(newProduct);
-      writeData('products.json', products);
-    }
-
-    await db.logActivity({
+    products.unshift(newProduct);
+    db.saveProducts(products);
+    syncFirestore('products', newId, newProduct);
+    db.logActivity({
       action: 'ADD_PRODUCT',
       entity_type: 'PRODUCT',
       entity_id: newId,
@@ -294,83 +177,63 @@ export const db = {
     });
     return newProduct;
   },
-
-  updateProduct: async (id, updateData) => {
-    const cleanId = String(id);
-    const processed = { ...updateData };
-    if (typeof processed.sizes === 'string') {
-      processed.sizes = processed.sizes.split(',').map(s => s.trim()).filter(Boolean);
-    }
-    if (typeof processed.colours === 'string') {
-      processed.colours = processed.colours.split(',').map(c => c.trim()).filter(Boolean);
-    }
-    if (typeof processed.tags === 'string') {
-      processed.tags = processed.tags.split(',').map(t => t.trim()).filter(Boolean);
-    }
-    if (processed.moq !== undefined) {
-      processed.moq = Number(processed.moq) || 0;
-    }
-    if (processed.images && !Array.isArray(processed.images)) {
-      processed.images = [processed.images].filter(Boolean);
-    }
-    processed.updated_at = new Date().toISOString();
-
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('products').doc(cleanId);
-      await docRef.set(processed, { merge: true });
-      const snap = await docRef.get();
-      const updated = { product_id: snap.id, ...snap.data() };
-      await db.logActivity({
-        action: 'UPDATE_PRODUCT',
-        entity_type: 'PRODUCT',
-        entity_id: cleanId,
-        details: `Updated product "${updated.product_name || cleanId}" (${updated.product_code || ''})`
-      });
-      return updated;
-    }
-
-    const products = readData('products.json', []);
-    const index = products.findIndex(p => String(p.product_id) === cleanId);
+  updateProduct: (id, updateData) => {
+    const products = db.getProducts();
+    const index = products.findIndex(p => String(p.product_id) === String(id));
     if (index !== -1) {
-      products[index] = { ...products[index], ...processed };
-      writeData('products.json', products);
-      await db.logActivity({
+      const processed = { ...updateData };
+      if (typeof processed.sizes === 'string') {
+        processed.sizes = processed.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (typeof processed.colours === 'string') {
+        processed.colours = processed.colours.split(',').map(c => c.trim()).filter(Boolean);
+      }
+      if (typeof processed.tags === 'string') {
+        processed.tags = processed.tags.split(',').map(t => t.trim()).filter(Boolean);
+      }
+      if (processed.moq !== undefined) {
+        processed.moq = Number(processed.moq) || 0;
+      }
+      if (processed.images && !Array.isArray(processed.images)) {
+        processed.images = [processed.images].filter(Boolean);
+      }
+
+      products[index] = {
+        ...products[index],
+        ...processed,
+        updated_at: new Date().toISOString()
+      };
+      db.saveProducts(products);
+      syncFirestore('products', id, products[index]);
+      db.logActivity({
         action: 'UPDATE_PRODUCT',
         entity_type: 'PRODUCT',
-        entity_id: cleanId,
+        entity_id: id,
         details: `Updated product "${products[index].product_name}" (${products[index].product_code})`
       });
       return products[index];
     }
     return null;
   },
-
-  deleteProduct: async (id) => {
-    const cleanId = String(id);
-    let name = cleanId;
-    if (isFirestoreConnected && firestoreDb) {
-      const doc = await firestoreDb.collection('products').doc(cleanId).get();
-      if (doc.exists) name = doc.data().product_name || cleanId;
-      await firestoreDb.collection('products').doc(cleanId).delete();
-    } else {
-      let products = readData('products.json', []);
-      const target = products.find(p => String(p.product_id) === cleanId);
-      if (target) name = target.product_name;
-      products = products.filter(p => String(p.product_id) !== cleanId);
-      writeData('products.json', products);
+  deleteProduct: (id) => {
+    let products = db.getProducts();
+    const target = products.find(p => String(p.product_id) === String(id));
+    products = products.filter(p => String(p.product_id) !== String(id));
+    db.saveProducts(products);
+    syncFirestore('products', id, null, true);
+    if (target) {
+      db.logActivity({
+        action: 'DELETE_PRODUCT',
+        entity_type: 'PRODUCT',
+        entity_id: id,
+        details: `Deleted product "${target.product_name}" (${target.product_code})`
+      });
     }
-
-    await db.logActivity({
-      action: 'DELETE_PRODUCT',
-      entity_type: 'PRODUCT',
-      entity_id: cleanId,
-      details: `Deleted product "${name}"`
-    });
     return true;
   },
-
-  duplicateProduct: async (id) => {
-    const target = await db.getProductById(id);
+  duplicateProduct: (id) => {
+    const products = db.getProducts();
+    const target = products.find(p => String(p.product_id) === String(id));
     if (!target) return null;
     const newId = Date.now().toString();
     const newProduct = {
@@ -380,16 +243,10 @@ export const db = {
       product_code: `${target.product_code}-COPY`,
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('products').doc(newId).set(newProduct);
-    } else {
-      const products = readData('products.json', []);
-      products.unshift(newProduct);
-      writeData('products.json', products);
-    }
-
-    await db.logActivity({
+    products.unshift(newProduct);
+    db.saveProducts(products);
+    syncFirestore('products', newId, newProduct);
+    db.logActivity({
       action: 'DUPLICATE_PRODUCT',
       entity_type: 'PRODUCT',
       entity_id: newId,
@@ -399,25 +256,8 @@ export const db = {
   },
 
   // Enquiries & Customer Timeline History
-  getEnquiries: async () => {
-    let enquiries = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('enquiries').get();
-        if (!snap.empty) {
-          enquiries = snap.docs.map(doc => ({ enquiry_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getEnquiries error:', e.message);
-      }
-    }
-
-    if (enquiries.length === 0) {
-      enquiries = readData('enquiries.json', []);
-    }
-
-    enquiries.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
+  getEnquiries: () => {
+    const enquiries = readData('enquiries.json');
     return enquiries.map(e => ({
       ...e,
       history: Array.isArray(e.history) ? e.history : [
@@ -430,25 +270,9 @@ export const db = {
       ]
     }));
   },
-
-  saveEnquiries: async (enquiries) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        enquiries.forEach(e => {
-          const docRef = firestoreDb.collection('enquiries').doc(String(e.enquiry_id));
-          batch.set(docRef, e, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveEnquiries error:', e.message);
-      }
-    }
-    writeData('enquiries.json', enquiries);
-  },
-
-  addEnquiry: async (enquiry) => {
+  saveEnquiries: (enquiries) => writeData('enquiries.json', enquiries),
+  addEnquiry: (enquiry) => {
+    const enquiries = db.getEnquiries();
     const newEnquiryId = 'ENQ-' + Date.now().toString().slice(-6);
     const now = new Date().toISOString();
     const newEnquiry = {
@@ -477,16 +301,10 @@ export const db = {
         }
       ]
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('enquiries').doc(newEnquiryId).set(newEnquiry);
-    } else {
-      const enquiries = readData('enquiries.json', []);
-      enquiries.unshift(newEnquiry);
-      writeData('enquiries.json', enquiries);
-    }
-
-    await db.logActivity({
+    enquiries.unshift(newEnquiry);
+    db.saveEnquiries(enquiries);
+    syncFirestore('enquiries', newEnquiryId, newEnquiry);
+    db.logActivity({
       action: 'NEW_ENQUIRY',
       entity_type: 'ENQUIRY',
       entity_id: newEnquiryId,
@@ -494,94 +312,41 @@ export const db = {
     });
     return newEnquiry;
   },
-
-  updateEnquiryStatus: async (id, status, note = '', author = 'Admin') => {
-    const cleanId = String(id);
-    let target = null;
-
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('enquiries').doc(cleanId);
-      const snap = await docRef.get();
-      if (snap.exists) {
-        target = { enquiry_id: snap.id, ...snap.data() };
-        const oldStatus = target.status;
-        target.status = status;
-        target.updated_at = new Date().toISOString();
-        if (!Array.isArray(target.history)) target.history = [];
-        target.history.unshift({
-          timestamp: new Date().toISOString(),
-          status: status,
-          note: note || `Status updated from ${oldStatus} to ${status}`,
-          author: author
-        });
-        await docRef.set(target, { merge: true });
-        await db.logActivity({
-          action: 'UPDATE_ENQUIRY_STATUS',
-          entity_type: 'ENQUIRY',
-          entity_id: cleanId,
-          details: `Enquiry ${cleanId} status changed: ${oldStatus} -> ${status} (${note || 'No notes'})`
-        });
-        return target;
-      }
-    }
-
-    const enquiries = readData('enquiries.json', []);
-    target = enquiries.find(e => String(e.enquiry_id) === cleanId);
+  updateEnquiryStatus: (id, status, note = '', author = 'Admin') => {
+    const enquiries = db.getEnquiries();
+    const target = enquiries.find(e => String(e.enquiry_id) === String(id));
     if (target) {
       const oldStatus = target.status;
       target.status = status;
       target.updated_at = new Date().toISOString();
-      if (!Array.isArray(target.history)) target.history = [];
+      if (!Array.isArray(target.history)) {
+        target.history = [];
+      }
       target.history.unshift({
         timestamp: new Date().toISOString(),
         status: status,
         note: note || `Status updated from ${oldStatus} to ${status}`,
         author: author
       });
-      writeData('enquiries.json', enquiries);
-      await db.logActivity({
+      db.saveEnquiries(enquiries);
+      syncFirestore('enquiries', id, target);
+      db.logActivity({
         action: 'UPDATE_ENQUIRY_STATUS',
         entity_type: 'ENQUIRY',
-        entity_id: cleanId,
-        details: `Enquiry ${cleanId} status changed: ${oldStatus} -> ${status} (${note || 'No notes'})`
+        entity_id: id,
+        details: `Enquiry ${id} status changed: ${oldStatus} -> ${status} (${note || 'No notes'})`
       });
       return target;
     }
     return null;
   },
-
-  addEnquiryNote: async (id, note, author = 'Admin') => {
-    const cleanId = String(id);
-    let target = null;
-
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('enquiries').doc(cleanId);
-      const snap = await docRef.get();
-      if (snap.exists) {
-        target = { enquiry_id: snap.id, ...snap.data() };
-        if (!Array.isArray(target.history)) target.history = [];
-        target.history.unshift({
-          timestamp: new Date().toISOString(),
-          status: target.status,
-          note: note,
-          author: author
-        });
-        target.updated_at = new Date().toISOString();
-        await docRef.set(target, { merge: true });
-        await db.logActivity({
-          action: 'ADD_ENQUIRY_NOTE',
-          entity_type: 'ENQUIRY',
-          entity_id: cleanId,
-          details: `Note added to enquiry ${cleanId}: "${note}"`
-        });
-        return target;
-      }
-    }
-
-    const enquiries = readData('enquiries.json', []);
-    target = enquiries.find(e => String(e.enquiry_id) === cleanId);
+  addEnquiryNote: (id, note, author = 'Admin') => {
+    const enquiries = db.getEnquiries();
+    const target = enquiries.find(e => String(e.enquiry_id) === String(id));
     if (target) {
-      if (!Array.isArray(target.history)) target.history = [];
+      if (!Array.isArray(target.history)) {
+        target.history = [];
+      }
       target.history.unshift({
         timestamp: new Date().toISOString(),
         status: target.status,
@@ -589,97 +354,61 @@ export const db = {
         author: author
       });
       target.updated_at = new Date().toISOString();
-      writeData('enquiries.json', enquiries);
-      await db.logActivity({
+      db.saveEnquiries(enquiries);
+      syncFirestore('enquiries', id, target);
+      db.logActivity({
         action: 'ADD_ENQUIRY_NOTE',
         entity_type: 'ENQUIRY',
-        entity_id: cleanId,
-        details: `Note added to enquiry ${cleanId}: "${note}"`
+        entity_id: id,
+        details: `Note added to enquiry ${id}: "${note}"`
       });
       return target;
     }
     return null;
   },
-
-  updateEnquiry: async (id, updateData) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('enquiries').doc(cleanId);
-      await docRef.set({ ...updateData, updated_at: new Date().toISOString() }, { merge: true });
-      const snap = await docRef.get();
-      const updated = { enquiry_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'EDIT_ENQUIRY', entity_type: 'ENQUIRY', entity_id: cleanId, details: `Enquiry ${cleanId} details updated` });
-      return updated;
-    }
-
-    const enquiries = readData('enquiries.json', []);
-    const index = enquiries.findIndex(e => String(e.enquiry_id) === cleanId);
+  updateEnquiry: (id, updateData) => {
+    const enquiries = db.getEnquiries();
+    const index = enquiries.findIndex(e => String(e.enquiry_id) === String(id));
     if (index !== -1) {
-      enquiries[index] = { ...enquiries[index], ...updateData, updated_at: new Date().toISOString() };
-      writeData('enquiries.json', enquiries);
-      await db.logActivity({ action: 'EDIT_ENQUIRY', entity_type: 'ENQUIRY', entity_id: cleanId, details: `Enquiry ${cleanId} details updated` });
+      enquiries[index] = {
+        ...enquiries[index],
+        ...updateData,
+        updated_at: new Date().toISOString()
+      };
+      db.saveEnquiries(enquiries);
+      syncFirestore('enquiries', id, enquiries[index]);
+      db.logActivity({
+        action: 'EDIT_ENQUIRY',
+        entity_type: 'ENQUIRY',
+        entity_id: id,
+        details: `Enquiry ${id} details updated`
+      });
       return enquiries[index];
     }
     return null;
   },
-
-  deleteEnquiry: async (id) => {
-    const cleanId = String(id);
-    let name = cleanId;
-    if (isFirestoreConnected && firestoreDb) {
-      const snap = await firestoreDb.collection('enquiries').doc(cleanId).get();
-      if (snap.exists) name = snap.data().customer_name || cleanId;
-      await firestoreDb.collection('enquiries').doc(cleanId).delete();
-    } else {
-      let enquiries = readData('enquiries.json', []);
-      const target = enquiries.find(e => String(e.enquiry_id) === cleanId);
-      if (target) name = target.customer_name;
-      enquiries = enquiries.filter(e => String(e.enquiry_id) !== cleanId);
-      writeData('enquiries.json', enquiries);
+  deleteEnquiry: (id) => {
+    let enquiries = db.getEnquiries();
+    const target = enquiries.find(e => String(e.enquiry_id) === String(id));
+    enquiries = enquiries.filter(e => String(e.enquiry_id) !== String(id));
+    db.saveEnquiries(enquiries);
+    syncFirestore('enquiries', id, null, true);
+    if (target) {
+      db.logActivity({
+        action: 'DELETE_ENQUIRY',
+        entity_type: 'ENQUIRY',
+        entity_id: id,
+        details: `Deleted enquiry ${id} from ${target.customer_name}`
+      });
     }
-
-    await db.logActivity({ action: 'DELETE_ENQUIRY', entity_type: 'ENQUIRY', entity_id: cleanId, details: `Deleted enquiry ${cleanId} from ${name}` });
     return true;
   },
 
   // Sample Requests
-  getSampleRequests: async () => {
-    let list = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('sample_requests').get();
-        if (!snap.empty) {
-          list = snap.docs.map(doc => ({ sample_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getSampleRequests error:', e.message);
-      }
-    }
-    if (list.length === 0) {
-      list = readData('sample_requests.json', []);
-    }
-    list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    return list;
-  },
-
-  saveSampleRequests: async (list) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        list.forEach(item => {
-          const docRef = firestoreDb.collection('sample_requests').doc(String(item.sample_id));
-          batch.set(docRef, item, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveSampleRequests error:', e.message);
-      }
-    }
-    writeData('sample_requests.json', list);
-  },
-
-  addSampleRequest: async (req) => {
+  getSampleRequests: () => readData('sample_requests.json'),
+  saveSampleRequests: (list) => writeData('sample_requests.json', list),
+  addSampleRequest: (req) => {
+    const requests = db.getSampleRequests();
     const newId = 'SMP-' + Date.now().toString().slice(-6);
     const newReq = {
       sample_id: newId,
@@ -694,16 +423,10 @@ export const db = {
       status: 'New',
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('sample_requests').doc(newId).set(newReq);
-    } else {
-      const requests = readData('sample_requests.json', []);
-      requests.unshift(newReq);
-      writeData('sample_requests.json', requests);
-    }
-
-    await db.logActivity({
+    requests.unshift(newReq);
+    db.saveSampleRequests(requests);
+    syncFirestore('sample_requests', newId, newReq);
+    db.logActivity({
       action: 'NEW_SAMPLE_REQUEST',
       entity_type: 'SAMPLE_REQUEST',
       entity_id: newId,
@@ -711,84 +434,39 @@ export const db = {
     });
     return newReq;
   },
-
-  updateSampleRequestStatus: async (id, status, notes = '') => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('sample_requests').doc(cleanId);
-      const updateData = { status, updated_at: new Date().toISOString() };
-      if (notes) updateData.notes = notes;
-      await docRef.set(updateData, { merge: true });
-      const snap = await docRef.get();
-      const updated = { sample_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'UPDATE_SAMPLE_STATUS', entity_type: 'SAMPLE_REQUEST', entity_id: cleanId, details: `Sample request ${cleanId} status set to ${status}` });
-      return updated;
-    }
-
-    const requests = readData('sample_requests.json', []);
-    const target = requests.find(s => String(s.sample_id) === cleanId);
+  updateSampleRequestStatus: (id, status, notes = '') => {
+    const requests = db.getSampleRequests();
+    const target = requests.find(s => String(s.sample_id) === String(id));
     if (target) {
       target.status = status;
       if (notes) target.notes = notes;
       target.updated_at = new Date().toISOString();
-      writeData('sample_requests.json', requests);
-      await db.logActivity({ action: 'UPDATE_SAMPLE_STATUS', entity_type: 'SAMPLE_REQUEST', entity_id: cleanId, details: `Sample request ${cleanId} status set to ${status}` });
+      db.saveSampleRequests(requests);
+      syncFirestore('sample_requests', id, target);
+      db.logActivity({
+        action: 'UPDATE_SAMPLE_STATUS',
+        entity_type: 'SAMPLE_REQUEST',
+        entity_id: id,
+        details: `Sample request ${id} status set to ${status}`
+      });
       return target;
     }
     return null;
   },
-
-  deleteSampleRequest: async (id) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('sample_requests').doc(cleanId).delete();
-    } else {
-      let list = readData('sample_requests.json', []);
-      list = list.filter(s => String(s.sample_id) !== cleanId);
-      writeData('sample_requests.json', list);
-    }
-    await db.logActivity({ action: 'DELETE_SAMPLE_REQUEST', entity_type: 'SAMPLE_REQUEST', entity_id: cleanId, details: `Deleted sample request ${cleanId}` });
+  deleteSampleRequest: (id) => {
+    let list = db.getSampleRequests();
+    list = list.filter(s => String(s.sample_id) !== String(id));
+    db.saveSampleRequests(list);
+    syncFirestore('sample_requests', id, null, true);
+    db.logActivity({ action: 'DELETE_SAMPLE_REQUEST', entity_type: 'SAMPLE_REQUEST', entity_id: id, details: `Deleted sample request ${id}` });
     return true;
   },
 
   // Callback Requests
-  getCallbackRequests: async () => {
-    let list = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('callback_requests').get();
-        if (!snap.empty) {
-          list = snap.docs.map(doc => ({ callback_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getCallbackRequests error:', e.message);
-      }
-    }
-    if (list.length === 0) {
-      list = readData('callback_requests.json', []);
-    }
-    list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    return list;
-  },
-
-  saveCallbackRequests: async (list) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        list.forEach(item => {
-          const docRef = firestoreDb.collection('callback_requests').doc(String(item.callback_id));
-          batch.set(docRef, item, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveCallbackRequests error:', e.message);
-      }
-    }
-    writeData('callback_requests.json', list);
-  },
-
-  addCallbackRequest: async (req) => {
+  getCallbackRequests: () => readData('callback_requests.json'),
+  saveCallbackRequests: (list) => writeData('callback_requests.json', list),
+  addCallbackRequest: (req) => {
+    const list = db.getCallbackRequests();
     const newId = 'CB-' + Date.now().toString().slice(-6);
     const newItem = {
       callback_id: newId,
@@ -800,16 +478,10 @@ export const db = {
       status: 'Pending',
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('callback_requests').doc(newId).set(newItem);
-    } else {
-      const list = readData('callback_requests.json', []);
-      list.unshift(newItem);
-      writeData('callback_requests.json', list);
-    }
-
-    await db.logActivity({
+    list.unshift(newItem);
+    db.saveCallbackRequests(list);
+    syncFirestore('callback_requests', newId, newItem);
+    db.logActivity({
       action: 'NEW_CALLBACK_REQUEST',
       entity_type: 'CALLBACK_REQUEST',
       entity_id: newId,
@@ -817,92 +489,49 @@ export const db = {
     });
     return newItem;
   },
-
-  updateCallbackRequestStatus: async (id, status, notes = '') => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('callback_requests').doc(cleanId);
-      const updateData = { status, updated_at: new Date().toISOString() };
-      if (notes) updateData.notes = notes;
-      await docRef.set(updateData, { merge: true });
-      const snap = await docRef.get();
-      const updated = { callback_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'UPDATE_CALLBACK_STATUS', entity_type: 'CALLBACK_REQUEST', entity_id: cleanId, details: `Callback request ${cleanId} status updated to ${status}` });
-      return updated;
-    }
-
-    const list = readData('callback_requests.json', []);
-    const target = list.find(c => String(c.callback_id) === cleanId);
+  updateCallbackRequestStatus: (id, status, notes = '') => {
+    const list = db.getCallbackRequests();
+    const target = list.find(c => String(c.callback_id) === String(id));
     if (target) {
       target.status = status;
       if (notes) target.notes = notes;
       target.updated_at = new Date().toISOString();
-      writeData('callback_requests.json', list);
-      await db.logActivity({ action: 'UPDATE_CALLBACK_STATUS', entity_type: 'CALLBACK_REQUEST', entity_id: cleanId, details: `Callback request ${cleanId} status updated to ${status}` });
+      db.saveCallbackRequests(list);
+      syncFirestore('callback_requests', id, target);
+      db.logActivity({
+        action: 'UPDATE_CALLBACK_STATUS',
+        entity_type: 'CALLBACK_REQUEST',
+        entity_id: id,
+        details: `Callback request ${id} status updated to ${status}`
+      });
       return target;
     }
     return null;
   },
-
-  deleteCallbackRequest: async (id) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('callback_requests').doc(cleanId).delete();
-    } else {
-      let list = readData('callback_requests.json', []);
-      list = list.filter(c => String(c.callback_id) !== cleanId);
-      writeData('callback_requests.json', list);
-    }
-    await db.logActivity({ action: 'DELETE_CALLBACK_REQUEST', entity_type: 'CALLBACK_REQUEST', entity_id: cleanId, details: `Deleted callback request ${cleanId}` });
+  deleteCallbackRequest: (id) => {
+    let list = db.getCallbackRequests();
+    list = list.filter(c => String(c.callback_id) !== String(id));
+    db.saveCallbackRequests(list);
+    syncFirestore('callback_requests', id, null, true);
+    db.logActivity({ action: 'DELETE_CALLBACK_REQUEST', entity_type: 'CALLBACK_REQUEST', entity_id: id, details: `Deleted callback request ${id}` });
     return true;
   },
 
   // Offers
-  getOffers: async () => {
-    let offers = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('offers').get();
-        if (!snap.empty) {
-          offers = snap.docs.map(doc => ({ offer_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getOffers error:', e.message);
-      }
-    }
-    if (offers.length === 0) {
-      offers = readData('offers.json', []);
-    }
+  getOffers: () => {
+    const offers = readData('offers.json');
     const today = new Date().toISOString().split('T')[0];
     return offers.map(o => ({
       ...o,
       is_active: !o.expiry_date || o.expiry_date >= today
     }));
   },
-
-  getActiveOffers: async () => {
-    const offers = await db.getOffers();
-    return offers.filter(o => o.is_active && o.status !== 'Disabled');
+  getActiveOffers: () => {
+    return db.getOffers().filter(o => o.is_active && o.status !== 'Disabled');
   },
-
-  saveOffers: async (offers) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        offers.forEach(item => {
-          const docRef = firestoreDb.collection('offers').doc(String(item.offer_id));
-          batch.set(docRef, item, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveOffers error:', e.message);
-      }
-    }
-    writeData('offers.json', offers);
-  },
-
-  addOffer: async (data) => {
+  saveOffers: (offers) => writeData('offers.json', offers),
+  addOffer: (data) => {
+    const list = db.getOffers();
     const newId = 'OFF-' + Date.now().toString().slice(-5);
     const newItem = {
       offer_id: newId,
@@ -916,105 +545,51 @@ export const db = {
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('offers').doc(newId).set(newItem);
-    } else {
-      const list = readData('offers.json', []);
-      list.unshift(newItem);
-      writeData('offers.json', list);
-    }
-
-    await db.logActivity({ action: 'ADD_OFFER', entity_type: 'OFFER', entity_id: newId, details: `Created offer "${newItem.title}"` });
+    list.unshift(newItem);
+    db.saveOffers(list);
+    syncFirestore('offers', newId, newItem);
+    db.logActivity({ action: 'ADD_OFFER', entity_type: 'OFFER', entity_id: newId, details: `Created offer "${newItem.title}"` });
     return newItem;
   },
-
-  updateOffer: async (id, updateData) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('offers').doc(cleanId);
-      await docRef.set({ ...updateData, updated_at: new Date().toISOString() }, { merge: true });
-      const snap = await docRef.get();
-      const updated = { offer_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: cleanId, details: `Updated offer "${updated.title}"` });
-      return updated;
-    }
-
-    const list = readData('offers.json', []);
-    const index = list.findIndex(o => String(o.offer_id) === cleanId);
+  updateOffer: (id, updateData) => {
+    const list = db.getOffers();
+    const index = list.findIndex(o => String(o.offer_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      writeData('offers.json', list);
-      await db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: cleanId, details: `Updated offer "${list[index].title}"` });
+      db.saveOffers(list);
+      syncFirestore('offers', id, list[index]);
+      db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Updated offer "${list[index].title}"` });
       return list[index];
     }
     return null;
   },
-
-  deleteOffer: async (id) => {
-    const cleanId = String(id);
-    let title = cleanId;
-    if (isFirestoreConnected && firestoreDb) {
-      const snap = await firestoreDb.collection('offers').doc(cleanId).get();
-      if (snap.exists) title = snap.data().title || cleanId;
-      await firestoreDb.collection('offers').doc(cleanId).delete();
-    } else {
-      let list = readData('offers.json', []);
-      const target = list.find(o => String(o.offer_id) === cleanId);
-      if (target) title = target.title;
-      list = list.filter(o => String(o.offer_id) !== cleanId);
-      writeData('offers.json', list);
+  deleteOffer: (id) => {
+    let list = db.getOffers();
+    const target = list.find(o => String(o.offer_id) === String(id));
+    list = list.filter(o => String(o.offer_id) !== String(id));
+    db.saveOffers(list);
+    syncFirestore('offers', id, null, true);
+    if (target) {
+      db.logActivity({ action: 'DELETE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Deleted offer "${target.title}"` });
     }
-    await db.logActivity({ action: 'DELETE_OFFER', entity_type: 'OFFER', entity_id: cleanId, details: `Deleted offer "${title}"` });
     return true;
   },
 
   // Announcements
-  getAnnouncements: async () => {
-    let list = [];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('announcements').get();
-        if (!snap.empty) {
-          list = snap.docs.map(doc => ({ announcement_id: doc.id, ...doc.data() }));
-        }
-      } catch (e) {
-        console.warn('Firestore getAnnouncements error:', e.message);
-      }
-    }
-    if (list.length === 0) {
-      list = readData('announcements.json', []);
-    }
+  getAnnouncements: () => {
+    const list = readData('announcements.json');
     const today = new Date().toISOString().split('T')[0];
     return list.map(a => ({
       ...a,
       is_active: !a.expiry_date || a.expiry_date >= today
     }));
   },
-
-  getActiveAnnouncements: async () => {
-    const list = await db.getAnnouncements();
-    return list.filter(a => a.is_active && a.status !== 'Disabled');
+  getActiveAnnouncements: () => {
+    return db.getAnnouncements().filter(a => a.is_active && a.status !== 'Disabled');
   },
-
-  saveAnnouncements: async (list) => {
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const batch = firestoreDb.batch();
-        list.forEach(item => {
-          const docRef = firestoreDb.collection('announcements').doc(String(item.announcement_id));
-          batch.set(docRef, item, { merge: true });
-        });
-        await batch.commit();
-        return;
-      } catch (e) {
-        console.warn('Firestore saveAnnouncements error:', e.message);
-      }
-    }
-    writeData('announcements.json', list);
-  },
-
-  addAnnouncement: async (data) => {
+  saveAnnouncements: (list) => writeData('announcements.json', list),
+  addAnnouncement: (data) => {
+    const list = db.getAnnouncements();
     const newId = 'ANN-' + Date.now().toString().slice(-5);
     const newItem = {
       announcement_id: newId,
@@ -1025,80 +600,40 @@ export const db = {
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
-
-    if (isFirestoreConnected && firestoreDb) {
-      await firestoreDb.collection('announcements').doc(newId).set(newItem);
-    } else {
-      const list = readData('announcements.json', []);
-      list.unshift(newItem);
-      writeData('announcements.json', list);
-    }
-
-    await db.logActivity({ action: 'ADD_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: newId, details: `Added announcement "${newItem.title}"` });
+    list.unshift(newItem);
+    db.saveAnnouncements(list);
+    syncFirestore('announcements', newId, newItem);
+    db.logActivity({ action: 'ADD_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: newId, details: `Added announcement "${newItem.title}"` });
     return newItem;
   },
-
-  updateAnnouncement: async (id, updateData) => {
-    const cleanId = String(id);
-    if (isFirestoreConnected && firestoreDb) {
-      const docRef = firestoreDb.collection('announcements').doc(cleanId);
-      await docRef.set({ ...updateData, updated_at: new Date().toISOString() }, { merge: true });
-      const snap = await docRef.get();
-      const updated = { announcement_id: snap.id, ...snap.data() };
-      await db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: cleanId, details: `Updated announcement "${updated.title}"` });
-      return updated;
-    }
-
-    const list = readData('announcements.json', []);
-    const index = list.findIndex(a => String(a.announcement_id) === cleanId);
+  updateAnnouncement: (id, updateData) => {
+    const list = db.getAnnouncements();
+    const index = list.findIndex(a => String(a.announcement_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      writeData('announcements.json', list);
-      await db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: cleanId, details: `Updated announcement "${list[index].title}"` });
+      db.saveAnnouncements(list);
+      syncFirestore('announcements', id, list[index]);
+      db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Updated announcement "${list[index].title}"` });
       return list[index];
     }
     return null;
   },
-
-  deleteAnnouncement: async (id) => {
-    const cleanId = String(id);
-    let title = cleanId;
-    if (isFirestoreConnected && firestoreDb) {
-      const snap = await firestoreDb.collection('announcements').doc(cleanId).get();
-      if (snap.exists) title = snap.data().title || cleanId;
-      await firestoreDb.collection('announcements').doc(cleanId).delete();
-    } else {
-      let list = readData('announcements.json', []);
-      const target = list.find(a => String(a.announcement_id) === cleanId);
-      if (target) title = target.title;
-      list = list.filter(a => String(a.announcement_id) !== cleanId);
-      writeData('announcements.json', list);
+  deleteAnnouncement: (id) => {
+    let list = db.getAnnouncements();
+    const target = list.find(a => String(a.announcement_id) === String(id));
+    list = list.filter(a => String(a.announcement_id) !== String(id));
+    db.saveAnnouncements(list);
+    syncFirestore('announcements', id, null, true);
+    if (target) {
+      db.logActivity({ action: 'DELETE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Deleted announcement "${target.title}"` });
     }
-    await db.logActivity({ action: 'DELETE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: cleanId, details: `Deleted announcement "${title}"` });
     return true;
   },
 
   // Admin Auth
-  getAdmin: async () => {
-    const defaultAdmin = [{ admin_id: 1, username: 'admin', password_hash: 'admin123', name: 'Tirupur Admin Owner' }];
-    if (isFirestoreConnected && firestoreDb) {
-      try {
-        const snap = await firestoreDb.collection('admins').get();
-        if (!snap.empty) {
-          return snap.docs.map(doc => ({ username: doc.id, ...doc.data() }));
-        }
-        // Seed initial admin document if not present in Firestore
-        await firestoreDb.collection('admins').doc('admin').set(defaultAdmin[0]);
-        return defaultAdmin;
-      } catch (e) {
-        console.warn('Firestore getAdmin error:', e.message);
-      }
-    }
-    return readData('admin.json', defaultAdmin);
-  },
-
-  verifyAdmin: async (username, password) => {
-    const admins = await db.getAdmin();
+  getAdmin: () => readData('admin.json', [{ admin_id: 1, username: 'admin', password_hash: 'admin123', name: 'Tirupur Admin Owner' }]),
+  verifyAdmin: (username, password) => {
+    const admins = db.getAdmin();
     return admins.find(a => a.username === username && a.password_hash === password);
   }
 };

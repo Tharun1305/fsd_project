@@ -20,33 +20,14 @@ try {
 
   let serviceAccount = null;
 
-  // 1. Check for FIREBASE_SERVICE_ACCOUNT (raw JSON, Base64, or URI-encoded)
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
     try {
-      if (raw.startsWith('{')) {
-        serviceAccount = JSON.parse(raw);
-      } else {
-        // Base64 encoded JSON string
-        const decoded = Buffer.from(raw, 'base64').toString('utf-8');
-        serviceAccount = JSON.parse(decoded);
-      }
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     } catch (e) {
-      console.warn('⚠️ Could not parse FIREBASE_SERVICE_ACCOUNT environment variable:', e.message);
+      console.warn('Could not parse FIREBASE_SERVICE_ACCOUNT JSON environment variable.');
     }
-  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
-    try {
-      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.trim(), 'base64').toString('utf-8');
-      serviceAccount = JSON.parse(decoded);
-    } catch (e) {
-      console.warn('⚠️ Could not parse FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable:', e.message);
-    }
-  } else if (envKeyPath) {
-    if (fs.existsSync(envKeyPath)) {
-      serviceAccount = JSON.parse(fs.readFileSync(envKeyPath, 'utf-8'));
-    } else if (envKeyPath.trim().startsWith('{')) {
-      serviceAccount = JSON.parse(envKeyPath.trim());
-    }
+  } else if (envKeyPath && fs.existsSync(envKeyPath)) {
+    serviceAccount = JSON.parse(fs.readFileSync(envKeyPath, 'utf-8'));
   } else if (fs.existsSync(serverKeyPath)) {
     serviceAccount = JSON.parse(fs.readFileSync(serverKeyPath, 'utf-8'));
   } else if (fs.existsSync(rootKeyPath)) {
@@ -54,36 +35,24 @@ try {
   }
 
   if (serviceAccount) {
-    // Correct escaped newlines in private key if passed via environment variable string
-    if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-    }
-
     const app = initializeApp({
       credential: cert(serviceAccount)
     });
     firestoreDb = getFirestore(app);
     isFirestoreConnected = true;
-    console.log(`✅ Connected to Google Firebase Firestore database (Project: ${serviceAccount.project_id || 'active'}).`);
+    console.log('✅ Connected to Google Cloud Firestore using Service Account Key.');
   } else if (process.env.NODE_ENV === 'production' && process.env.K_SERVICE) {
     const app = initializeApp();
     firestoreDb = getFirestore(app);
     isFirestoreConnected = true;
-    console.log('✅ Connected to Google Firebase Firestore via Cloud Run Application Default Credentials.');
+    console.log('✅ Connected to Google Cloud Firestore via Cloud Run Application Default Credentials.');
   } else {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('❌ CRITICAL: Google Firebase Firestore service account is not configured in production environment!');
-      console.error('👉 Please configure FIREBASE_SERVICE_ACCOUNT environment variable on Render.');
-    } else {
-      console.log('ℹ️ Google Firebase Firestore credentials not detected.');
-      console.log('ℹ️ Set FIREBASE_SERVICE_ACCOUNT or place serviceAccountKey.json to activate live Firestore.');
-    }
+    console.log('ℹ️ Google Cloud Firestore key not detected. Using high-speed local data store.');
+    console.log('ℹ️ Place serviceAccountKey.json in project root to activate live cloud Firestore.');
   }
 } catch (err) {
-  console.warn('⚠️ Google Firebase Firestore initialization failed:', err.message);
-  if (process.env.NODE_ENV === 'production') {
-    console.error('❌ Running in production without live Firestore connection is not recommended.');
-  }
+  console.warn('⚠️ Google Cloud Firestore initialization skipped:', err.message);
+  console.log('ℹ️ Operating on local database store.');
 }
 
 export { firestoreDb, isFirestoreConnected };
