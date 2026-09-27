@@ -51,6 +51,80 @@ function syncFirestore(collection, id, data, isDelete = false) {
   }
 }
 
+// Real-time two-way listener: automatically pull cloud updates into local cache
+export function initFirestoreListeners() {
+  if (!isFirestoreConnected || !firestoreDb) return;
+
+  const collections = [
+    {
+      name: 'categories',
+      file: 'categories.json',
+      sortFn: (a, b) => Number(a.category_id || 0) - Number(b.category_id || 0)
+    },
+    {
+      name: 'products',
+      file: 'products.json',
+      sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    },
+    {
+      name: 'enquiries',
+      file: 'enquiries.json',
+      sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    },
+    {
+      name: 'sample_requests',
+      file: 'sample_requests.json',
+      sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    },
+    {
+      name: 'callback_requests',
+      file: 'callback_requests.json',
+      sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    },
+    {
+      name: 'offers',
+      file: 'offers.json',
+      sortFn: (a, b) => (b.offer_id || 0) - (a.offer_id || 0)
+    },
+    {
+      name: 'announcements',
+      file: 'announcements.json',
+      sortFn: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    },
+    {
+      name: 'activity_logs',
+      file: 'activity_logs.json',
+      sortFn: (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+    }
+  ];
+
+  collections.forEach(({ name, file, sortFn }) => {
+    try {
+      firestoreDb.collection(name).onSnapshot(
+        snapshot => {
+          if (!snapshot.empty) {
+            const items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            if (sortFn) items.sort(sortFn);
+            writeData(file, items);
+          }
+        },
+        err => {
+          console.warn(`Firestore listener warning on [${name}]:`, err.message);
+        }
+      );
+    } catch (err) {
+      console.warn(`Failed to attach Firestore listener to [${name}]:`, err.message);
+    }
+  });
+
+  console.log('🔄 Live 2-way Firestore sync active: incoming cloud updates will reflect automatically.');
+}
+
+if (isFirestoreConnected && firestoreDb) {
+  initFirestoreListeners();
+}
+
 // Database helper functions
 export const db = {
   // Activity History & Audit Logs
