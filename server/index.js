@@ -3,7 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './db.js';
+import { db, readData } from './db.js';
 import { initializeSeedData } from './seed.js';
 
 import { isFirestoreConnected } from './firestore.js';
@@ -18,7 +18,7 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize seed data if empty
-if (db.getProducts().length === 0) {
+if (readData('products.json').length === 0) {
   initializeSeedData();
 }
 
@@ -36,27 +36,27 @@ app.get('/api/health', (req, res) => {
 // REST API Endpoints
 
 // 1. Categories
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
-    const cats = db.getCategories();
+    const cats = await db.getCategories();
     res.json({ success: true, data: cats });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', async (req, res) => {
   try {
-    const newCat = db.addCategory(req.body);
+    const newCat = await db.addCategory(req.body);
     res.status(201).json({ success: true, data: newCat });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/categories/:id', (req, res) => {
+app.put('/api/categories/:id', async (req, res) => {
   try {
-    const updated = db.updateCategory(req.params.id, req.body);
+    const updated = await db.updateCategory(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Category not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -64,9 +64,9 @@ app.put('/api/categories/:id', (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', async (req, res) => {
   try {
-    db.deleteCategory(req.params.id);
+    await db.deleteCategory(req.params.id);
     res.json({ success: true, message: 'Category deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -74,9 +74,9 @@ app.delete('/api/categories/:id', (req, res) => {
 });
 
 // 2. Products (with multi-filter, live search, and sorting)
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
-    let products = db.getProducts();
+    let products = await db.getProducts();
     const { q, category, fabric, color, size, availability, new_arrivals, latest } = req.query;
 
     if (q) {
@@ -123,13 +123,13 @@ app.get('/api/products', (req, res) => {
   }
 });
 
-app.get('/api/products/:id', (req, res) => {
+app.get('/api/products/:id', async (req, res) => {
   try {
-    const product = db.getProductById(req.params.id);
+    const product = await db.getProductById(req.params.id);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    const all = db.getProducts();
+    const all = await db.getProducts();
     const similar = all.filter(p =>
       String(p.product_id) !== String(product.product_id) &&
       (String(p.category_id) === String(product.category_id) || p.fabric === product.fabric)
@@ -142,18 +142,18 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 // Admin Product Management
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
   try {
-    const newProduct = db.addProduct(req.body);
+    const newProduct = await db.addProduct(req.body);
     res.status(201).json({ success: true, message: 'Product added successfully', data: newProduct });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   try {
-    const updated = db.updateProduct(req.params.id, req.body);
+    const updated = await db.updateProduct(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product updated successfully', data: updated });
   } catch (err) {
@@ -161,10 +161,10 @@ app.put('/api/products/:id', (req, res) => {
   }
 });
 
-app.patch('/api/products/:id/quick-update', (req, res) => {
+app.patch('/api/products/:id/quick-update', async (req, res) => {
   try {
     const { price, moq, availability } = req.body;
-    const updated = db.updateProduct(req.params.id, { price, moq: Number(moq), availability });
+    const updated = await db.updateProduct(req.params.id, { price, moq: Number(moq), availability });
     if (!updated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Quick update successful', data: updated });
   } catch (err) {
@@ -172,9 +172,9 @@ app.patch('/api/products/:id/quick-update', (req, res) => {
   }
 });
 
-app.post('/api/products/:id/duplicate', (req, res) => {
+app.post('/api/products/:id/duplicate', async (req, res) => {
   try {
-    const duplicated = db.duplicateProduct(req.params.id);
+    const duplicated = await db.duplicateProduct(req.params.id);
     if (!duplicated) return res.status(404).json({ success: false, message: 'Product not found' });
     res.json({ success: true, message: 'Product duplicated successfully', data: duplicated });
   } catch (err) {
@@ -182,9 +182,9 @@ app.post('/api/products/:id/duplicate', (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', async (req, res) => {
   try {
-    db.deleteProduct(req.params.id);
+    await db.deleteProduct(req.params.id);
     res.json({ success: true, message: 'Product deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -192,18 +192,18 @@ app.delete('/api/products/:id', (req, res) => {
 });
 
 // 3. Enquiries & Follow-up History
-app.get('/api/enquiries', (req, res) => {
+app.get('/api/enquiries', async (req, res) => {
   try {
-    const enquiries = db.getEnquiries();
+    const enquiries = await db.getEnquiries();
     res.json({ success: true, data: enquiries });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/enquiries', (req, res) => {
+app.post('/api/enquiries', async (req, res) => {
   try {
-    const enquiry = db.addEnquiry(req.body);
+    const enquiry = await db.addEnquiry(req.body);
     res.status(201).json({
       success: true,
       message: 'Thank you. Your bulk enquiry has been received. Our team will contact you shortly.',
@@ -214,9 +214,9 @@ app.post('/api/enquiries', (req, res) => {
   }
 });
 
-app.put('/api/enquiries/:id', (req, res) => {
+app.put('/api/enquiries/:id', async (req, res) => {
   try {
-    const updated = db.updateEnquiry(req.params.id, req.body);
+    const updated = await db.updateEnquiry(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -224,10 +224,10 @@ app.put('/api/enquiries/:id', (req, res) => {
   }
 });
 
-app.patch('/api/enquiries/:id/status', (req, res) => {
+app.patch('/api/enquiries/:id/status', async (req, res) => {
   try {
     const { status, note, author } = req.body;
-    const updated = db.updateEnquiryStatus(req.params.id, status, note, author);
+    const updated = await db.updateEnquiryStatus(req.params.id, status, note, author);
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -235,13 +235,13 @@ app.patch('/api/enquiries/:id/status', (req, res) => {
   }
 });
 
-app.post('/api/enquiries/:id/notes', (req, res) => {
+app.post('/api/enquiries/:id/notes', async (req, res) => {
   try {
     const { note, author } = req.body;
     if (!note || !note.trim()) {
       return res.status(400).json({ success: false, message: 'Note content is required' });
     }
-    const updated = db.addEnquiryNote(req.params.id, note.trim(), author || 'Admin');
+    const updated = await db.addEnquiryNote(req.params.id, note.trim(), author || 'Admin');
     if (!updated) return res.status(404).json({ success: false, message: 'Enquiry not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -249,9 +249,9 @@ app.post('/api/enquiries/:id/notes', (req, res) => {
   }
 });
 
-app.delete('/api/enquiries/:id', (req, res) => {
+app.delete('/api/enquiries/:id', async (req, res) => {
   try {
-    db.deleteEnquiry(req.params.id);
+    await db.deleteEnquiry(req.params.id);
     res.json({ success: true, message: 'Enquiry deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -259,17 +259,18 @@ app.delete('/api/enquiries/:id', (req, res) => {
 });
 
 // 4. Sample Requests
-app.get('/api/sample-requests', (req, res) => {
+app.get('/api/sample-requests', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getSampleRequests() });
+    const samples = await db.getSampleRequests();
+    res.json({ success: true, data: samples });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/sample-requests', (req, res) => {
+app.post('/api/sample-requests', async (req, res) => {
   try {
-    const sampleReq = db.addSampleRequest(req.body);
+    const sampleReq = await db.addSampleRequest(req.body);
     res.status(201).json({
       success: true,
       message: 'Sample request submitted successfully. Our Tiruppur dispatch coordinator will call you.',
@@ -280,10 +281,10 @@ app.post('/api/sample-requests', (req, res) => {
   }
 });
 
-app.patch('/api/sample-requests/:id/status', (req, res) => {
+app.patch('/api/sample-requests/:id/status', async (req, res) => {
   try {
     const { status, notes } = req.body;
-    const updated = db.updateSampleRequestStatus(req.params.id, status, notes);
+    const updated = await db.updateSampleRequestStatus(req.params.id, status, notes);
     if (!updated) return res.status(404).json({ success: false, message: 'Sample request not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -291,9 +292,9 @@ app.patch('/api/sample-requests/:id/status', (req, res) => {
   }
 });
 
-app.delete('/api/sample-requests/:id', (req, res) => {
+app.delete('/api/sample-requests/:id', async (req, res) => {
   try {
-    db.deleteSampleRequest(req.params.id);
+    await db.deleteSampleRequest(req.params.id);
     res.json({ success: true, message: 'Sample request deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -301,17 +302,18 @@ app.delete('/api/sample-requests/:id', (req, res) => {
 });
 
 // 5. Callback Requests
-app.get('/api/callback-requests', (req, res) => {
+app.get('/api/callback-requests', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getCallbackRequests() });
+    const callbacks = await db.getCallbackRequests();
+    res.json({ success: true, data: callbacks });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/callback-requests', (req, res) => {
+app.post('/api/callback-requests', async (req, res) => {
   try {
-    const cb = db.addCallbackRequest(req.body);
+    const cb = await db.addCallbackRequest(req.body);
     res.status(201).json({
       success: true,
       message: 'Callback request received. We will call you at your preferred time.',
@@ -322,10 +324,10 @@ app.post('/api/callback-requests', (req, res) => {
   }
 });
 
-app.patch('/api/callback-requests/:id/status', (req, res) => {
+app.patch('/api/callback-requests/:id/status', async (req, res) => {
   try {
     const { status, notes } = req.body;
-    const updated = db.updateCallbackRequestStatus(req.params.id, status, notes);
+    const updated = await db.updateCallbackRequestStatus(req.params.id, status, notes);
     if (!updated) return res.status(404).json({ success: false, message: 'Callback request not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -333,9 +335,9 @@ app.patch('/api/callback-requests/:id/status', (req, res) => {
   }
 });
 
-app.delete('/api/callback-requests/:id', (req, res) => {
+app.delete('/api/callback-requests/:id', async (req, res) => {
   try {
-    db.deleteCallbackRequest(req.params.id);
+    await db.deleteCallbackRequest(req.params.id);
     res.json({ success: true, message: 'Callback request deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -343,34 +345,36 @@ app.delete('/api/callback-requests/:id', (req, res) => {
 });
 
 // 6. Offers & Announcements
-app.get('/api/offers', (req, res) => {
+app.get('/api/offers', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getActiveOffers() });
+    const active = await db.getActiveOffers();
+    res.json({ success: true, data: active });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/admin/offers', (req, res) => {
+app.get('/api/admin/offers', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getOffers() });
+    const offers = await db.getOffers();
+    res.json({ success: true, data: offers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/offers', (req, res) => {
+app.post('/api/offers', async (req, res) => {
   try {
-    const offer = db.addOffer(req.body);
+    const offer = await db.addOffer(req.body);
     res.status(201).json({ success: true, data: offer });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/offers/:id', (req, res) => {
+app.put('/api/offers/:id', async (req, res) => {
   try {
-    const updated = db.updateOffer(req.params.id, req.body);
+    const updated = await db.updateOffer(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Offer not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -378,43 +382,45 @@ app.put('/api/offers/:id', (req, res) => {
   }
 });
 
-app.delete('/api/offers/:id', (req, res) => {
+app.delete('/api/offers/:id', async (req, res) => {
   try {
-    db.deleteOffer(req.params.id);
+    await db.deleteOffer(req.params.id);
     res.json({ success: true, message: 'Offer deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/announcements', (req, res) => {
+app.get('/api/announcements', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getActiveAnnouncements() });
+    const active = await db.getActiveAnnouncements();
+    res.json({ success: true, data: active });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/admin/announcements', (req, res) => {
+app.get('/api/admin/announcements', async (req, res) => {
   try {
-    res.json({ success: true, data: db.getAnnouncements() });
+    const announcements = await db.getAnnouncements();
+    res.json({ success: true, data: announcements });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.post('/api/announcements', (req, res) => {
+app.post('/api/announcements', async (req, res) => {
   try {
-    const ann = db.addAnnouncement(req.body);
+    const ann = await db.addAnnouncement(req.body);
     res.status(201).json({ success: true, data: ann });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.put('/api/announcements/:id', (req, res) => {
+app.put('/api/announcements/:id', async (req, res) => {
   try {
-    const updated = db.updateAnnouncement(req.params.id, req.body);
+    const updated = await db.updateAnnouncement(req.params.id, req.body);
     if (!updated) return res.status(404).json({ success: false, message: 'Announcement not found' });
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -422,9 +428,9 @@ app.put('/api/announcements/:id', (req, res) => {
   }
 });
 
-app.delete('/api/announcements/:id', (req, res) => {
+app.delete('/api/announcements/:id', async (req, res) => {
   try {
-    db.deleteAnnouncement(req.params.id);
+    await db.deleteAnnouncement(req.params.id);
     res.json({ success: true, message: 'Announcement deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -432,9 +438,9 @@ app.delete('/api/announcements/:id', (req, res) => {
 });
 
 // 7. Activity & Audit History Logs
-app.get('/api/admin/activity-logs', (req, res) => {
+app.get('/api/admin/activity-logs', async (req, res) => {
   try {
-    const logs = db.getActivityLogs();
+    const logs = await db.getActivityLogs();
     res.json({ success: true, data: logs });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -442,15 +448,15 @@ app.get('/api/admin/activity-logs', (req, res) => {
 });
 
 // 8. Admin Auth
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
-    const admin = db.verifyAdmin(username.trim(), password);
+    const admin = await db.verifyAdmin(username.trim(), password);
     if (admin) {
-      db.logActivity({
+      await db.logActivity({
         action: 'ADMIN_LOGIN',
         entity_type: 'AUTH',
         entity_id: admin.username,
@@ -471,13 +477,13 @@ app.post('/api/login', (req, res) => {
 });
 
 // Admin Stats Endpoint
-app.get('/api/admin/stats', (req, res) => {
+app.get('/api/admin/stats', async (req, res) => {
   try {
-    const products = db.getProducts();
-    const enquiries = db.getEnquiries();
-    const samples = db.getSampleRequests();
-    const callbacks = db.getCallbackRequests();
-    const offers = db.getActiveOffers();
+    const products = await db.getProducts();
+    const enquiries = await db.getEnquiries();
+    const samples = await db.getSampleRequests();
+    const callbacks = await db.getCallbackRequests();
+    const offers = await db.getActiveOffers();
 
     res.json({
       success: true,
@@ -496,9 +502,37 @@ app.get('/api/admin/stats', (req, res) => {
   }
 });
 
-// 9. AI Chatbot Endpoint (Powered by Groq AI)
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const GROQ_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+// Strip BOM (\uFEFF) and other invisible characters that may be introduced
+// when copy-pasting keys via Windows Notepad or certain editors
+const GROQ_API_KEY = (process.env.AKEY || process.env.GROQ_API_KEY || '').replace(/^\uFEFF/, '').replace(/[^\x20-\x7E]/g, '').trim();
+
+// Groq models in priority order — we try each until one succeeds
+const GROQ_MODELS = [
+  'qwen/qwen3.8-27b',
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'llama3-70b-8192',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it',
+  'allam-2-7b'
+];
+
+// Debug: List available Groq models for this API key
+app.get('/api/groq-models', async (req, res) => {
+  if (!GROQ_API_KEY) return res.json({ error: 'No GROQ_API_KEY set' });
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` }
+    });
+    const data = await r.json();
+    const ids = (data.data || []).map(m => m.id).filter(id => !id.includes('whisper') && !id.includes('tts') && !id.includes('guard'));
+    res.json({ key_prefix: GROQ_API_KEY.slice(0, 7), key_length: GROQ_API_KEY.length, accessible_models: ids });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
 
 app.post('/api/chat', async (req, res) => {
   try {
@@ -555,7 +589,7 @@ YOUR GUIDELINES:
     ];
 
     let aiReply = null;
-    let lastError = null;
+    const modelErrors = [];
 
     for (const model of GROQ_MODELS) {
       try {
@@ -578,10 +612,10 @@ YOUR GUIDELINES:
           aiReply = groqData.choices[0].message.content;
           break;
         } else if (groqData.error) {
-          lastError = groqData.error.message;
+          modelErrors.push({ model, error: groqData.error.message, status: groqRes.status });
         }
       } catch (err) {
-        lastError = err.message;
+        modelErrors.push({ model, error: err.message });
       }
     }
 
@@ -591,7 +625,8 @@ YOUR GUIDELINES:
 
     res.json({
       success: true,
-      reply: aiReply
+      reply: aiReply,
+      _debug: modelErrors.length > 0 ? { model_errors: modelErrors, key_length: GROQ_API_KEY.length, key_prefix: GROQ_API_KEY.slice(0, 7) } : undefined
     });
 
   } catch (err) {
@@ -604,15 +639,29 @@ YOUR GUIDELINES:
 });
 
 // Production Static Serving for Google Cloud Run / Google App Engine / Docker
-const distPath = path.join(__dirname, '../dist');
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+// (Skip static serving on Vercel — Vite handles the frontend separately)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const distPath = path.join(__dirname, '../dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`G V Clothings API Server running on port ${PORT}`);
-});
+// Export for Vercel serverless (api/index.js imports this)
+export default app;
+
+// Only listen when run directly (local dev: node server/index.js)
+const isMain = process.argv[1] && (
+  process.argv[1].endsWith('index.js') ||
+  process.argv[1].endsWith('index')
+) && !process.env.VERCEL;
+
+if (isMain) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`G V Clothings API Server running on port ${PORT}`);
+  });
+}

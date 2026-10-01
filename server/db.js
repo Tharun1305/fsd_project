@@ -7,8 +7,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// In-memory cache to maintain data across requests within the process
+const memoryCache = {};
+
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  // Read-only filesystem (Vercel)
 }
 
 function getFilePath(filename) {
@@ -16,14 +23,22 @@ function getFilePath(filename) {
 }
 
 export function readData(filename, defaultVal = []) {
+  if (memoryCache[filename]) {
+    return JSON.parse(JSON.stringify(memoryCache[filename]));
+  }
   const filepath = getFilePath(filename);
   if (!fs.existsSync(filepath)) {
-    fs.writeFileSync(filepath, JSON.stringify(defaultVal, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(filepath, JSON.stringify(defaultVal, null, 2), 'utf-8');
+    } catch (e) {}
+    memoryCache[filename] = defaultVal;
     return defaultVal;
   }
   try {
     const raw = fs.readFileSync(filepath, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    memoryCache[filename] = parsed;
+    return parsed;
   } catch (err) {
     console.error(`Error reading ${filename}:`, err);
     return defaultVal;
@@ -31,27 +46,56 @@ export function readData(filename, defaultVal = []) {
 }
 
 export function writeData(filename, data) {
-  const filepath = getFilePath(filename);
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-// Real-time synchronization helper for Google Cloud Firestore
-function syncFirestore(collection, id, data, isDelete = false) {
-  if (isFirestoreConnected && firestoreDb && id) {
-    try {
-      const docRef = firestoreDb.collection(collection).doc(String(id));
-      if (isDelete) {
-        docRef.delete().catch(err => console.warn(`Firestore delete error [${collection}/${id}]:`, err.message));
-      } else if (data) {
-        docRef.set(data, { merge: true }).catch(err => console.warn(`Firestore sync error [${collection}/${id}]:`, err.message));
-      }
-    } catch (e) {
-      console.warn(`Firestore sync exception [${collection}]:`, e.message);
+  memoryCache[filename] = JSON.parse(JSON.stringify(data));
+  try {
+    const filepath = getFilePath(filename);
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    if (err.code === 'EROFS' || err.code === 'EACCES' || err.code === 'EPERM') {
+      // Read-only filesystem (Vercel) — in-memory cache and Firestore handle persistence
+    } else {
+      throw err;
     }
   }
 }
 
-// Real-time two-way listener: automatically pull cloud updates into local cache
+// Firestore Direct Query Helper
+export async function getFromFirestore(collectionName, sortFn) {
+  if (isFirestoreConnected && firestoreDb) {
+    try {
+      const snap = await firestoreDb.collection(collectionName).get();
+      if (!snap.empty) {
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+        if (sortFn) items.sort(sortFn);
+        // Also keep memory cache fresh
+        memoryCache[`${collectionName}.json`] = JSON.parse(JSON.stringify(items));
+        return items;
+      }
+    } catch (e) {
+      console.warn(`Firestore read failed [${collectionName}]:`, e.message);
+    }
+  }
+  return null;
+}
+
+// Firestore Direct Write Helper (Awaited for Serverless safety)
+export async function syncFirestore(collection, id, data, isDelete = false) {
+  if (isFirestoreConnected && firestoreDb && id) {
+    try {
+      const docRef = firestoreDb.collection(collection).doc(String(id));
+      if (isDelete) {
+        await docRef.delete();
+      } else if (data) {
+        await docRef.set(data, { merge: true });
+      }
+    } catch (e) {
+      console.warn(`Firestore sync error [${collection}/${id}]:`, e.message);
+    }
+  }
+}
+
+// Real-time two-way listener: automatically pull cloud updates into memory cache
 export function initFirestoreListeners() {
   if (!isFirestoreConnected || !firestoreDb) return;
 
@@ -118,7 +162,7 @@ export function initFirestoreListeners() {
     }
   });
 
-  console.log('🔄 Live 2-way Firestore sync active: incoming cloud updates will reflect automatically.');
+  console.log('🔄 Live 2-way Firestore sync active.');
 }
 
 if (isFirestoreConnected && firestoreDb) {
@@ -128,12 +172,12 @@ if (isFirestoreConnected && firestoreDb) {
 // Database helper functions
 export const db = {
   // Activity History & Audit Logs
-  getActivityLogs: () => {
-    return readData('activity_logs.json', []);
+  getActivityLogs: async () => {
+    const fsData = await getFromFirestore('activity_logs', (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+    return fsData || readData('activity_logs.json', []);
   },
-  logActivity: ({ action, entity_type, entity_id, details, user = 'Admin' }) => {
+  logActivity: async ({ action, entity_type, entity_id, details, user = 'Admin' }) => {
     try {
-      const logs = readData('activity_logs.json', []);
       const newLog = {
         log_id: 'LOG-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         action,
@@ -143,10 +187,13 @@ export const db = {
         user,
         timestamp: new Date().toISOString()
       };
-      logs.unshift(newLog);
-      if (logs.length > 500) logs.length = 500;
-      writeData('activity_logs.json', logs);
-      syncFirestore('activity_logs', newLog.log_id, newLog);
+      await syncFirestore('activity_logs', newLog.log_id, newLog);
+      try {
+        const logs = readData('activity_logs.json', []);
+        logs.unshift(newLog);
+        if (logs.length > 500) logs.length = 500;
+        writeData('activity_logs.json', logs);
+      } catch (e) {}
       return newLog;
     } catch (e) {
       console.error('Failed to log activity:', e);
@@ -154,10 +201,12 @@ export const db = {
   },
 
   // Categories
-  getCategories: () => readData('categories.json'),
+  getCategories: async () => {
+    const fsData = await getFromFirestore('categories', (a, b) => Number(a.category_id || 0) - Number(b.category_id || 0));
+    return fsData || readData('categories.json');
+  },
   saveCategories: (cats) => writeData('categories.json', cats),
-  addCategory: (catData) => {
-    const cats = db.getCategories();
+  addCategory: async (catData) => {
     const newId = String(Date.now());
     const newCat = {
       category_id: newId,
@@ -165,39 +214,55 @@ export const db = {
       icon: catData.icon || 'Layers',
       description: catData.description || ''
     };
-    cats.push(newCat);
-    db.saveCategories(cats);
-    syncFirestore('categories', newId, newCat);
-    db.logActivity({ action: 'CREATE_CATEGORY', entity_type: 'CATEGORY', entity_id: newId, details: `Category ${newCat.category_name} created` });
+    await syncFirestore('categories', newId, newCat);
+    try {
+      const cats = readData('categories.json');
+      cats.push(newCat);
+      writeData('categories.json', cats);
+    } catch (e) {}
+    await db.logActivity({ action: 'CREATE_CATEGORY', entity_type: 'CATEGORY', entity_id: newId, details: `Category ${newCat.category_name} created` });
     return newCat;
   },
-  updateCategory: (id, updateData) => {
-    const cats = db.getCategories();
+  updateCategory: async (id, updateData) => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('categories').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = { ...snap.data(), ...updateData };
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
+    }
+    const cats = readData('categories.json');
     const index = cats.findIndex(c => String(c.category_id) === String(id));
     if (index !== -1) {
       cats[index] = { ...cats[index], ...updateData };
-      db.saveCategories(cats);
-      syncFirestore('categories', id, cats[index]);
-      db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${cats[index].category_name} updated` });
-      return cats[index];
+      writeData('categories.json', cats);
+      if (!target) target = cats[index];
     }
-    return null;
+    if (target) {
+      await db.logActivity({ action: 'UPDATE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${target.category_name} updated` });
+    }
+    return target;
   },
-  deleteCategory: (id) => {
-    let cats = db.getCategories();
+  deleteCategory: async (id) => {
+    await syncFirestore('categories', id, null, true);
+    let cats = readData('categories.json');
     const target = cats.find(c => String(c.category_id) === String(id));
     cats = cats.filter(c => String(c.category_id) !== String(id));
-    db.saveCategories(cats);
-    syncFirestore('categories', id, null, true);
+    writeData('categories.json', cats);
     if (target) {
-      db.logActivity({ action: 'DELETE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${target.category_name} deleted` });
+      await db.logActivity({ action: 'DELETE_CATEGORY', entity_type: 'CATEGORY', entity_id: id, details: `Category ${target.category_name} deleted` });
     }
     return true;
   },
 
   // Products
-  getProducts: () => {
-    const prods = readData('products.json');
+  getProducts: async () => {
+    const fsData = await getFromFirestore('products', (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const prods = fsData || readData('products.json');
     const now = new Date();
     return prods.map(p => {
       const createdDate = new Date(p.created_at || Date.now());
@@ -208,10 +273,12 @@ export const db = {
       };
     });
   },
-  getProductById: (id) => db.getProducts().find(p => String(p.product_id) === String(id)),
+  getProductById: async (id) => {
+    const products = await db.getProducts();
+    return products.find(p => String(p.product_id) === String(id));
+  },
   saveProducts: (products) => writeData('products.json', products),
-  addProduct: (productData) => {
-    const products = db.getProducts();
+  addProduct: async (productData) => {
     const newId = Date.now().toString();
     const newProduct = {
       product_id: newId,
@@ -230,73 +297,103 @@ export const db = {
         : ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop'],
       sizes: Array.isArray(productData.sizes) && productData.sizes.length > 0
         ? productData.sizes
-        : (typeof productData.sizes === 'string' ? productData.sizes.split(',').map(s => s.trim()).filter(Boolean) : ['S', 'M', 'L', 'XL', 'XXL']),
+        : ['36 inch', '42 inch', '48 inch', '54 inch', '60 inch'],
       colours: Array.isArray(productData.colours) && productData.colours.length > 0
         ? productData.colours
-        : (typeof productData.colours === 'string' ? productData.colours.split(',').map(c => c.trim()).filter(Boolean) : ['Navy Blue', 'Black', 'White', 'Melange Grey']),
-      tags: Array.isArray(productData.tags) && productData.tags.length > 0
-        ? productData.tags
-        : (typeof productData.tags === 'string' ? productData.tags.split(',').map(t => t.trim()).filter(Boolean) : ['Bio-Wash', 'Pre-Shrunk']),
-      is_new_arrival: productData.is_new_arrival !== undefined ? Boolean(productData.is_new_arrival) : true,
+        : ['Navy Blue', 'Jet Black', 'White', 'Melange Grey'],
+      tags: Array.isArray(productData.tags) ? productData.tags : ['Bio-Wash', 'Combed Cotton'],
+      specifications: productData.specifications || {
+        composition: productData.fabric || '100% Cotton',
+        yarn_count: '30s Combed',
+        dyeing_type: 'Reactive Dye',
+        shrinkage: '< 3%'
+      },
+      bulk_pricing: Array.isArray(productData.bulk_pricing) && productData.bulk_pricing.length > 0
+        ? productData.bulk_pricing
+        : [
+            { tier: '100 - 300 Kg', price: productData.price || '₹320 / Kg' },
+            { tier: '300 - 500 Kg', price: '₹305 / Kg' },
+            { tier: '500+ Kg', price: '₹290 / Kg' }
+          ],
       created_at: new Date().toISOString()
     };
-    products.unshift(newProduct);
-    db.saveProducts(products);
-    syncFirestore('products', newId, newProduct);
-    db.logActivity({
+    await syncFirestore('products', newId, newProduct);
+    try {
+      const products = readData('products.json');
+      products.unshift(newProduct);
+      writeData('products.json', products);
+    } catch (e) {}
+    await db.logActivity({
       action: 'ADD_PRODUCT',
       entity_type: 'PRODUCT',
       entity_id: newId,
-      details: `Added new product "${newProduct.product_name}" (${newProduct.product_code}) at ${newProduct.price}`
+      details: `Added new product "${newProduct.product_name}" (${newProduct.product_code})`
     });
     return newProduct;
   },
-  updateProduct: (id, updateData) => {
-    const products = db.getProducts();
+  updateProduct: async (id, updateData) => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('products').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = { ...snap.data(), ...updateData, updated_at: new Date().toISOString() };
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
+    }
+    const products = readData('products.json');
     const index = products.findIndex(p => String(p.product_id) === String(id));
     if (index !== -1) {
-      const processed = { ...updateData };
-      if (typeof processed.sizes === 'string') {
-        processed.sizes = processed.sizes.split(',').map(s => s.trim()).filter(Boolean);
-      }
-      if (typeof processed.colours === 'string') {
-        processed.colours = processed.colours.split(',').map(c => c.trim()).filter(Boolean);
-      }
-      if (typeof processed.tags === 'string') {
-        processed.tags = processed.tags.split(',').map(t => t.trim()).filter(Boolean);
-      }
-      if (processed.moq !== undefined) {
-        processed.moq = Number(processed.moq) || 0;
-      }
-      if (processed.images && !Array.isArray(processed.images)) {
-        processed.images = [processed.images].filter(Boolean);
-      }
-
-      products[index] = {
-        ...products[index],
-        ...processed,
-        updated_at: new Date().toISOString()
-      };
-      db.saveProducts(products);
-      syncFirestore('products', id, products[index]);
-      db.logActivity({
+      products[index] = { ...products[index], ...updateData, updated_at: new Date().toISOString() };
+      writeData('products.json', products);
+      if (!target) target = products[index];
+    }
+    if (target) {
+      await db.logActivity({
         action: 'UPDATE_PRODUCT',
         entity_type: 'PRODUCT',
         entity_id: id,
-        details: `Updated product "${products[index].product_name}" (${products[index].product_code})`
+        details: `Updated product "${target.product_name}" (${target.product_code})`
       });
-      return products[index];
     }
-    return null;
+    return target;
   },
-  deleteProduct: (id) => {
-    let products = db.getProducts();
+  duplicateProduct: async (id) => {
+    const products = await db.getProducts();
+    const original = products.find(p => String(p.product_id) === String(id));
+    if (!original) return null;
+    const newId = Date.now().toString();
+    const duplicated = {
+      ...original,
+      product_id: newId,
+      product_name: `${original.product_name} (Copy)`,
+      product_code: `GVF-${Math.floor(100 + Math.random() * 900)}`,
+      created_at: new Date().toISOString()
+    };
+    await syncFirestore('products', newId, duplicated);
+    try {
+      const local = readData('products.json');
+      local.unshift(duplicated);
+      writeData('products.json', local);
+    } catch (e) {}
+    await db.logActivity({
+      action: 'DUPLICATE_PRODUCT',
+      entity_type: 'PRODUCT',
+      entity_id: newId,
+      details: `Duplicated product "${original.product_name}" as "${duplicated.product_name}"`
+    });
+    return duplicated;
+  },
+  deleteProduct: async (id) => {
+    await syncFirestore('products', id, null, true);
+    let products = readData('products.json');
     const target = products.find(p => String(p.product_id) === String(id));
     products = products.filter(p => String(p.product_id) !== String(id));
-    db.saveProducts(products);
-    syncFirestore('products', id, null, true);
+    writeData('products.json', products);
     if (target) {
-      db.logActivity({
+      await db.logActivity({
         action: 'DELETE_PRODUCT',
         entity_type: 'PRODUCT',
         entity_id: id,
@@ -305,33 +402,11 @@ export const db = {
     }
     return true;
   },
-  duplicateProduct: (id) => {
-    const products = db.getProducts();
-    const target = products.find(p => String(p.product_id) === String(id));
-    if (!target) return null;
-    const newId = Date.now().toString();
-    const newProduct = {
-      ...target,
-      product_id: newId,
-      product_name: `${target.product_name} (Copy)`,
-      product_code: `${target.product_code}-COPY`,
-      created_at: new Date().toISOString()
-    };
-    products.unshift(newProduct);
-    db.saveProducts(products);
-    syncFirestore('products', newId, newProduct);
-    db.logActivity({
-      action: 'DUPLICATE_PRODUCT',
-      entity_type: 'PRODUCT',
-      entity_id: newId,
-      details: `Duplicated product "${target.product_name}" -> "${newProduct.product_name}"`
-    });
-    return newProduct;
-  },
 
   // Enquiries & Customer Timeline History
-  getEnquiries: () => {
-    const enquiries = readData('enquiries.json');
+  getEnquiries: async () => {
+    const fsData = await getFromFirestore('enquiries', (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const enquiries = fsData || readData('enquiries.json');
     return enquiries.map(e => ({
       ...e,
       history: Array.isArray(e.history) ? e.history : [
@@ -345,8 +420,7 @@ export const db = {
     }));
   },
   saveEnquiries: (enquiries) => writeData('enquiries.json', enquiries),
-  addEnquiry: (enquiry) => {
-    const enquiries = db.getEnquiries();
+  addEnquiry: async (enquiry) => {
     const newEnquiryId = 'ENQ-' + Date.now().toString().slice(-6);
     const now = new Date().toISOString();
     const newEnquiry = {
@@ -375,10 +449,16 @@ export const db = {
         }
       ]
     };
-    enquiries.unshift(newEnquiry);
-    db.saveEnquiries(enquiries);
-    syncFirestore('enquiries', newEnquiryId, newEnquiry);
-    db.logActivity({
+    // 1. Await Firestore write so serverless function never terminates before save
+    await syncFirestore('enquiries', newEnquiryId, newEnquiry);
+    // 2. Also keep local data store updated
+    try {
+      const enquiries = readData('enquiries.json');
+      enquiries.unshift(newEnquiry);
+      writeData('enquiries.json', enquiries);
+    } catch (e) {}
+    // 3. Log activity
+    await db.logActivity({
       action: 'NEW_ENQUIRY',
       entity_type: 'ENQUIRY',
       entity_id: newEnquiryId,
@@ -386,62 +466,107 @@ export const db = {
     });
     return newEnquiry;
   },
-  updateEnquiryStatus: (id, status, note = '', author = 'Admin') => {
-    const enquiries = db.getEnquiries();
-    const target = enquiries.find(e => String(e.enquiry_id) === String(id));
-    if (target) {
-      const oldStatus = target.status;
-      target.status = status;
-      target.updated_at = new Date().toISOString();
-      if (!Array.isArray(target.history)) {
-        target.history = [];
+  updateEnquiryStatus: async (id, status, note = '', author = 'Admin') => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('enquiries').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = snap.data();
+          const oldStatus = target.status;
+          target.status = status;
+          target.updated_at = new Date().toISOString();
+          if (!Array.isArray(target.history)) target.history = [];
+          target.history.unshift({
+            timestamp: new Date().toISOString(),
+            status: status,
+            note: note || `Status updated from ${oldStatus} to ${status}`,
+            author: author
+          });
+          await docRef.set(target, { merge: true });
+        }
+      } catch (err) {
+        console.warn('Firestore updateEnquiryStatus failed:', err.message);
       }
-      target.history.unshift({
+    }
+    const enquiries = readData('enquiries.json');
+    const local = enquiries.find(e => String(e.enquiry_id) === String(id));
+    if (local) {
+      const oldStatus = local.status;
+      local.status = status;
+      local.updated_at = new Date().toISOString();
+      if (!Array.isArray(local.history)) local.history = [];
+      local.history.unshift({
         timestamp: new Date().toISOString(),
         status: status,
         note: note || `Status updated from ${oldStatus} to ${status}`,
         author: author
       });
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, target);
-      db.logActivity({
+      writeData('enquiries.json', enquiries);
+      if (!target) target = local;
+    }
+    if (target) {
+      await db.logActivity({
         action: 'UPDATE_ENQUIRY_STATUS',
         entity_type: 'ENQUIRY',
         entity_id: id,
-        details: `Enquiry ${id} status changed: ${oldStatus} -> ${status} (${note || 'No notes'})`
+        details: `Enquiry ${id} status changed: ${target.status} (${note || 'No notes'})`
       });
-      return target;
     }
-    return null;
+    return target;
   },
-  addEnquiryNote: (id, note, author = 'Admin') => {
-    const enquiries = db.getEnquiries();
-    const target = enquiries.find(e => String(e.enquiry_id) === String(id));
-    if (target) {
-      if (!Array.isArray(target.history)) {
-        target.history = [];
+  addEnquiryNote: async (id, note, author = 'Admin') => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('enquiries').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = snap.data();
+          if (!Array.isArray(target.history)) target.history = [];
+          target.history.unshift({
+            timestamp: new Date().toISOString(),
+            status: target.status || 'New',
+            note: note,
+            author: author
+          });
+          target.updated_at = new Date().toISOString();
+          await docRef.set(target, { merge: true });
+        }
+      } catch (err) {
+        console.warn('Firestore add note error:', err.message);
       }
-      target.history.unshift({
+    }
+    const enquiries = readData('enquiries.json');
+    const local = enquiries.find(e => String(e.enquiry_id) === String(id));
+    if (local) {
+      if (!Array.isArray(local.history)) local.history = [];
+      local.history.unshift({
         timestamp: new Date().toISOString(),
-        status: target.status,
+        status: local.status || 'New',
         note: note,
         author: author
       });
-      target.updated_at = new Date().toISOString();
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, target);
-      db.logActivity({
-        action: 'ADD_ENQUIRY_NOTE',
-        entity_type: 'ENQUIRY',
-        entity_id: id,
-        details: `Note added to enquiry ${id}: "${note}"`
-      });
-      return target;
+      local.updated_at = new Date().toISOString();
+      writeData('enquiries.json', enquiries);
+      if (!target) target = local;
     }
-    return null;
+    return target;
   },
-  updateEnquiry: (id, updateData) => {
-    const enquiries = db.getEnquiries();
+  updateEnquiry: async (id, updateData) => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('enquiries').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = { ...snap.data(), ...updateData, updated_at: new Date().toISOString() };
+          await docRef.set(target, { merge: true });
+        }
+      } catch (err) {}
+    }
+    const enquiries = readData('enquiries.json');
     const index = enquiries.findIndex(e => String(e.enquiry_id) === String(id));
     if (index !== -1) {
       enquiries[index] = {
@@ -449,26 +574,27 @@ export const db = {
         ...updateData,
         updated_at: new Date().toISOString()
       };
-      db.saveEnquiries(enquiries);
-      syncFirestore('enquiries', id, enquiries[index]);
-      db.logActivity({
+      writeData('enquiries.json', enquiries);
+      if (!target) target = enquiries[index];
+    }
+    if (target) {
+      await db.logActivity({
         action: 'EDIT_ENQUIRY',
         entity_type: 'ENQUIRY',
         entity_id: id,
         details: `Enquiry ${id} details updated`
       });
-      return enquiries[index];
     }
-    return null;
+    return target;
   },
-  deleteEnquiry: (id) => {
-    let enquiries = db.getEnquiries();
+  deleteEnquiry: async (id) => {
+    await syncFirestore('enquiries', id, null, true);
+    let enquiries = readData('enquiries.json');
     const target = enquiries.find(e => String(e.enquiry_id) === String(id));
     enquiries = enquiries.filter(e => String(e.enquiry_id) !== String(id));
-    db.saveEnquiries(enquiries);
-    syncFirestore('enquiries', id, null, true);
+    writeData('enquiries.json', enquiries);
     if (target) {
-      db.logActivity({
+      await db.logActivity({
         action: 'DELETE_ENQUIRY',
         entity_type: 'ENQUIRY',
         entity_id: id,
@@ -479,10 +605,12 @@ export const db = {
   },
 
   // Sample Requests
-  getSampleRequests: () => readData('sample_requests.json'),
+  getSampleRequests: async () => {
+    const fsData = await getFromFirestore('sample_requests', (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return fsData || readData('sample_requests.json');
+  },
   saveSampleRequests: (list) => writeData('sample_requests.json', list),
-  addSampleRequest: (req) => {
-    const requests = db.getSampleRequests();
+  addSampleRequest: async (req) => {
     const newId = 'SMP-' + Date.now().toString().slice(-6);
     const newReq = {
       sample_id: newId,
@@ -497,10 +625,13 @@ export const db = {
       status: 'New',
       created_at: new Date().toISOString()
     };
-    requests.unshift(newReq);
-    db.saveSampleRequests(requests);
-    syncFirestore('sample_requests', newId, newReq);
-    db.logActivity({
+    await syncFirestore('sample_requests', newId, newReq);
+    try {
+      const list = readData('sample_requests.json');
+      list.unshift(newReq);
+      writeData('sample_requests.json', list);
+    } catch (e) {}
+    await db.logActivity({
       action: 'NEW_SAMPLE_REQUEST',
       entity_type: 'SAMPLE_REQUEST',
       entity_id: newId,
@@ -508,39 +639,56 @@ export const db = {
     });
     return newReq;
   },
-  updateSampleRequestStatus: (id, status, notes = '') => {
-    const requests = db.getSampleRequests();
-    const target = requests.find(s => String(s.sample_id) === String(id));
+  updateSampleRequestStatus: async (id, status, notes = '') => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('sample_requests').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = snap.data();
+          target.status = status;
+          if (notes) target.notes = notes;
+          target.updated_at = new Date().toISOString();
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
+    }
+    const list = readData('sample_requests.json');
+    const local = list.find(s => String(s.sample_id) === String(id));
+    if (local) {
+      local.status = status;
+      if (notes) local.notes = notes;
+      local.updated_at = new Date().toISOString();
+      writeData('sample_requests.json', list);
+      if (!target) target = local;
+    }
     if (target) {
-      target.status = status;
-      if (notes) target.notes = notes;
-      target.updated_at = new Date().toISOString();
-      db.saveSampleRequests(requests);
-      syncFirestore('sample_requests', id, target);
-      db.logActivity({
+      await db.logActivity({
         action: 'UPDATE_SAMPLE_STATUS',
         entity_type: 'SAMPLE_REQUEST',
         entity_id: id,
         details: `Sample request ${id} status set to ${status}`
       });
-      return target;
     }
-    return null;
+    return target;
   },
-  deleteSampleRequest: (id) => {
-    let list = db.getSampleRequests();
+  deleteSampleRequest: async (id) => {
+    await syncFirestore('sample_requests', id, null, true);
+    let list = readData('sample_requests.json');
     list = list.filter(s => String(s.sample_id) !== String(id));
-    db.saveSampleRequests(list);
-    syncFirestore('sample_requests', id, null, true);
-    db.logActivity({ action: 'DELETE_SAMPLE_REQUEST', entity_type: 'SAMPLE_REQUEST', entity_id: id, details: `Deleted sample request ${id}` });
+    writeData('sample_requests.json', list);
+    await db.logActivity({ action: 'DELETE_SAMPLE_REQUEST', entity_type: 'SAMPLE_REQUEST', entity_id: id, details: `Deleted sample request ${id}` });
     return true;
   },
 
   // Callback Requests
-  getCallbackRequests: () => readData('callback_requests.json'),
+  getCallbackRequests: async () => {
+    const fsData = await getFromFirestore('callback_requests', (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return fsData || readData('callback_requests.json');
+  },
   saveCallbackRequests: (list) => writeData('callback_requests.json', list),
-  addCallbackRequest: (req) => {
-    const list = db.getCallbackRequests();
+  addCallbackRequest: async (req) => {
     const newId = 'CB-' + Date.now().toString().slice(-6);
     const newItem = {
       callback_id: newId,
@@ -552,10 +700,13 @@ export const db = {
       status: 'Pending',
       created_at: new Date().toISOString()
     };
-    list.unshift(newItem);
-    db.saveCallbackRequests(list);
-    syncFirestore('callback_requests', newId, newItem);
-    db.logActivity({
+    await syncFirestore('callback_requests', newId, newItem);
+    try {
+      const list = readData('callback_requests.json');
+      list.unshift(newItem);
+      writeData('callback_requests.json', list);
+    } catch (e) {}
+    await db.logActivity({
       action: 'NEW_CALLBACK_REQUEST',
       entity_type: 'CALLBACK_REQUEST',
       entity_id: newId,
@@ -563,49 +714,57 @@ export const db = {
     });
     return newItem;
   },
-  updateCallbackRequestStatus: (id, status, notes = '') => {
-    const list = db.getCallbackRequests();
-    const target = list.find(c => String(c.callback_id) === String(id));
-    if (target) {
-      target.status = status;
-      if (notes) target.notes = notes;
-      target.updated_at = new Date().toISOString();
-      db.saveCallbackRequests(list);
-      syncFirestore('callback_requests', id, target);
-      db.logActivity({
-        action: 'UPDATE_CALLBACK_STATUS',
-        entity_type: 'CALLBACK_REQUEST',
-        entity_id: id,
-        details: `Callback request ${id} status updated to ${status}`
-      });
-      return target;
+  updateCallbackRequestStatus: async (id, status, notes = '') => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('callback_requests').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = snap.data();
+          target.status = status;
+          if (notes) target.notes = notes;
+          target.updated_at = new Date().toISOString();
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
     }
-    return null;
+    const list = readData('callback_requests.json');
+    const local = list.find(c => String(c.callback_id) === String(id));
+    if (local) {
+      local.status = status;
+      if (notes) local.notes = notes;
+      local.updated_at = new Date().toISOString();
+      writeData('callback_requests.json', list);
+      if (!target) target = local;
+    }
+    return target;
   },
-  deleteCallbackRequest: (id) => {
-    let list = db.getCallbackRequests();
+  deleteCallbackRequest: async (id) => {
+    await syncFirestore('callback_requests', id, null, true);
+    let list = readData('callback_requests.json');
     list = list.filter(c => String(c.callback_id) !== String(id));
-    db.saveCallbackRequests(list);
-    syncFirestore('callback_requests', id, null, true);
-    db.logActivity({ action: 'DELETE_CALLBACK_REQUEST', entity_type: 'CALLBACK_REQUEST', entity_id: id, details: `Deleted callback request ${id}` });
+    writeData('callback_requests.json', list);
+    await db.logActivity({ action: 'DELETE_CALLBACK_REQUEST', entity_type: 'CALLBACK_REQUEST', entity_id: id, details: `Deleted callback request ${id}` });
     return true;
   },
 
   // Offers
-  getOffers: () => {
-    const offers = readData('offers.json');
+  getOffers: async () => {
+    const fsData = await getFromFirestore('offers', (a, b) => (b.offer_id || 0) - (a.offer_id || 0));
+    const offers = fsData || readData('offers.json');
     const today = new Date().toISOString().split('T')[0];
     return offers.map(o => ({
       ...o,
       is_active: !o.expiry_date || o.expiry_date >= today
     }));
   },
-  getActiveOffers: () => {
-    return db.getOffers().filter(o => o.is_active && o.status !== 'Disabled');
+  getActiveOffers: async () => {
+    const offers = await db.getOffers();
+    return offers.filter(o => o.is_active && o.status !== 'Disabled');
   },
   saveOffers: (offers) => writeData('offers.json', offers),
-  addOffer: (data) => {
-    const list = db.getOffers();
+  addOffer: async (data) => {
     const newId = 'OFF-' + Date.now().toString().slice(-5);
     const newItem = {
       offer_id: newId,
@@ -619,51 +778,67 @@ export const db = {
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
-    list.unshift(newItem);
-    db.saveOffers(list);
-    syncFirestore('offers', newId, newItem);
-    db.logActivity({ action: 'ADD_OFFER', entity_type: 'OFFER', entity_id: newId, details: `Created offer "${newItem.title}"` });
+    await syncFirestore('offers', newId, newItem);
+    try {
+      const list = readData('offers.json');
+      list.unshift(newItem);
+      writeData('offers.json', list);
+    } catch (e) {}
+    await db.logActivity({ action: 'ADD_OFFER', entity_type: 'OFFER', entity_id: newId, details: `Created offer "${newItem.title}"` });
     return newItem;
   },
-  updateOffer: (id, updateData) => {
-    const list = db.getOffers();
+  updateOffer: async (id, updateData) => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('offers').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = { ...snap.data(), ...updateData, updated_at: new Date().toISOString() };
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
+    }
+    const list = readData('offers.json');
     const index = list.findIndex(o => String(o.offer_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      db.saveOffers(list);
-      syncFirestore('offers', id, list[index]);
-      db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Updated offer "${list[index].title}"` });
-      return list[index];
+      writeData('offers.json', list);
+      if (!target) target = list[index];
     }
-    return null;
+    if (target) {
+      await db.logActivity({ action: 'UPDATE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Updated offer "${target.title}"` });
+    }
+    return target;
   },
-  deleteOffer: (id) => {
-    let list = db.getOffers();
+  deleteOffer: async (id) => {
+    await syncFirestore('offers', id, null, true);
+    let list = readData('offers.json');
     const target = list.find(o => String(o.offer_id) === String(id));
     list = list.filter(o => String(o.offer_id) !== String(id));
-    db.saveOffers(list);
-    syncFirestore('offers', id, null, true);
+    writeData('offers.json', list);
     if (target) {
-      db.logActivity({ action: 'DELETE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Deleted offer "${target.title}"` });
+      await db.logActivity({ action: 'DELETE_OFFER', entity_type: 'OFFER', entity_id: id, details: `Deleted offer "${target.title}"` });
     }
     return true;
   },
 
   // Announcements
-  getAnnouncements: () => {
-    const list = readData('announcements.json');
+  getAnnouncements: async () => {
+    const fsData = await getFromFirestore('announcements', (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const list = fsData || readData('announcements.json');
     const today = new Date().toISOString().split('T')[0];
     return list.map(a => ({
       ...a,
       is_active: !a.expiry_date || a.expiry_date >= today
     }));
   },
-  getActiveAnnouncements: () => {
-    return db.getAnnouncements().filter(a => a.is_active && a.status !== 'Disabled');
+  getActiveAnnouncements: async () => {
+    const list = await db.getAnnouncements();
+    return list.filter(a => a.is_active && a.status !== 'Disabled');
   },
   saveAnnouncements: (list) => writeData('announcements.json', list),
-  addAnnouncement: (data) => {
-    const list = db.getAnnouncements();
+  addAnnouncement: async (data) => {
     const newId = 'ANN-' + Date.now().toString().slice(-5);
     const newItem = {
       announcement_id: newId,
@@ -674,40 +849,59 @@ export const db = {
       status: data.status || 'Active',
       created_at: new Date().toISOString()
     };
-    list.unshift(newItem);
-    db.saveAnnouncements(list);
-    syncFirestore('announcements', newId, newItem);
-    db.logActivity({ action: 'ADD_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: newId, details: `Added announcement "${newItem.title}"` });
+    await syncFirestore('announcements', newId, newItem);
+    try {
+      const list = readData('announcements.json');
+      list.unshift(newItem);
+      writeData('announcements.json', list);
+    } catch (e) {}
+    await db.logActivity({ action: 'ADD_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: newId, details: `Added announcement "${newItem.title}"` });
     return newItem;
   },
-  updateAnnouncement: (id, updateData) => {
-    const list = db.getAnnouncements();
+  updateAnnouncement: async (id, updateData) => {
+    let target = null;
+    if (isFirestoreConnected && firestoreDb) {
+      try {
+        const docRef = firestoreDb.collection('announcements').doc(String(id));
+        const snap = await docRef.get();
+        if (snap.exists) {
+          target = { ...snap.data(), ...updateData, updated_at: new Date().toISOString() };
+          await docRef.set(target, { merge: true });
+        }
+      } catch (e) {}
+    }
+    const list = readData('announcements.json');
     const index = list.findIndex(a => String(a.announcement_id) === String(id));
     if (index !== -1) {
       list[index] = { ...list[index], ...updateData, updated_at: new Date().toISOString() };
-      db.saveAnnouncements(list);
-      syncFirestore('announcements', id, list[index]);
-      db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Updated announcement "${list[index].title}"` });
-      return list[index];
+      writeData('announcements.json', list);
+      if (!target) target = list[index];
     }
-    return null;
+    if (target) {
+      await db.logActivity({ action: 'UPDATE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Updated announcement "${target.title}"` });
+    }
+    return target;
   },
-  deleteAnnouncement: (id) => {
-    let list = db.getAnnouncements();
+  deleteAnnouncement: async (id) => {
+    await syncFirestore('announcements', id, null, true);
+    let list = readData('announcements.json');
     const target = list.find(a => String(a.announcement_id) === String(id));
     list = list.filter(a => String(a.announcement_id) !== String(id));
-    db.saveAnnouncements(list);
-    syncFirestore('announcements', id, null, true);
+    writeData('announcements.json', list);
     if (target) {
-      db.logActivity({ action: 'DELETE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Deleted announcement "${target.title}"` });
+      await db.logActivity({ action: 'DELETE_ANNOUNCEMENT', entity_type: 'ANNOUNCEMENT', entity_id: id, details: `Deleted announcement "${target.title}"` });
     }
     return true;
   },
 
   // Admin Auth
-  getAdmin: () => readData('admin.json', [{ admin_id: 1, username: 'admin', password_hash: 'admin123', name: 'Tirupur Admin Owner' }]),
-  verifyAdmin: (username, password) => {
-    const admins = db.getAdmin();
+  getAdmin: async () => {
+    const fsData = await getFromFirestore('admins');
+    if (fsData && fsData.length > 0) return fsData;
+    return readData('admin.json', [{ admin_id: 1, username: 'admin', password_hash: 'admin123', name: 'Tirupur Admin Owner' }]);
+  },
+  verifyAdmin: async (username, password) => {
+    const admins = await db.getAdmin();
     return admins.find(a => a.username === username && a.password_hash === password);
   }
 };

@@ -20,11 +20,12 @@ try {
 
   let serviceAccount = null;
 
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  const firebaseKeyRaw = process.env.FKEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (firebaseKeyRaw) {
     try {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      serviceAccount = typeof firebaseKeyRaw === 'string' ? JSON.parse(firebaseKeyRaw) : firebaseKeyRaw;
     } catch (e) {
-      console.warn('Could not parse FIREBASE_SERVICE_ACCOUNT JSON environment variable.');
+      console.warn('Could not parse FKEY / FIREBASE_SERVICE_ACCOUNT JSON environment variable:', e.message);
     }
   } else if (envKeyPath && fs.existsSync(envKeyPath)) {
     serviceAccount = JSON.parse(fs.readFileSync(envKeyPath, 'utf-8'));
