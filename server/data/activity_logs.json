@@ -1,18 +1,180 @@
 [
   {
-    "log_id": "LOG-1790419359007-846",
+    "entity_id": "admin",
+    "log_id": "LOG-1790850482779-925",
+    "action": "ADMIN_LOGIN",
+    "user": "Tirupur Admin Owner",
+    "entity_type": "AUTH",
+    "timestamp": "2026-10-01T10:28:02.779Z",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully"
+  },
+  {
     "action": "NEW_ENQUIRY",
+    "user": "Admin",
+    "entity_type": "ENQUIRY",
+    "timestamp": "2026-10-01T10:27:56.374Z",
+    "log_id": "LOG-1790850476374-866",
+    "entity_id": "ENQ-476368",
+    "details": "New enquiry received from SANJAY (gg) for 500 Pcs of General Catalogue Enquiry"
+  },
+  {
+    "user": "Tirupur Admin Owner",
+    "log_id": "LOG-1790850350324-684",
+    "action": "ADMIN_LOGIN",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "timestamp": "2026-10-01T10:25:50.324Z",
+    "entity_type": "AUTH",
+    "entity_id": "admin"
+  },
+  {
+    "log_id": "LOG-1790850259804-442",
+    "action": "NEW_ENQUIRY",
+    "entity_id": "ENQ-259801",
+    "entity_type": "ENQUIRY",
+    "timestamp": "2026-10-01T10:24:19.804Z",
+    "details": "New enquiry received from Viknesh R S (nedarsana) for 200 Pcs of Premium Fine Printed Combed Cotton Fabric (GVF-101)",
+    "user": "Admin"
+  },
+  {
+    "user": "Admin",
+    "details": "New enquiry received from Anonymous Buyer (N/A) for 100 Pcs of General Catalogue Enquiry",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-195200",
+    "log_id": "LOG-1790850195207-460",
+    "action": "NEW_ENQUIRY",
+    "timestamp": "2026-10-01T10:23:15.207Z"
+  },
+  {
+    "action": "NEW_ENQUIRY",
+    "details": "New enquiry received from Ravi Kumar (N/A) for 1000 Pcs of Combed Cotton",
+    "user": "Admin",
+    "timestamp": "2026-10-01T09:41:20.679Z",
+    "log_id": "LOG-1790847680679-629",
+    "entity_id": "ENQ-680671",
+    "entity_type": "ENQUIRY"
+  },
+  {
+    "user": "Admin",
+    "timestamp": "2026-10-01T09:38:58.337Z",
+    "entity_type": "ENQUIRY",
+    "details": "New enquiry received from Test Buyer (N/A) for 500 Pcs of Test Fabric",
+    "log_id": "LOG-1790847538337-720",
+    "action": "NEW_ENQUIRY",
+    "entity_id": "ENQ-538332"
+  },
+  {
+    "entity_id": "ENQ-622168",
+    "details": "Deleted enquiry ENQ-622168 from Test Buyer",
+    "entity_type": "ENQUIRY",
+    "log_id": "LOG-1790846144601-615",
+    "user": "Admin",
+    "timestamp": "2026-10-01T09:15:44.601Z",
+    "action": "DELETE_ENQUIRY"
+  },
+  {
+    "timestamp": "2026-10-01T09:15:40.544Z",
+    "user": "Admin",
+    "details": "Deleted enquiry ENQ-824815 from Antigravity Verification",
+    "entity_id": "ENQ-824815",
+    "action": "DELETE_ENQUIRY",
+    "log_id": "LOG-1790846140544-124",
+    "entity_type": "ENQUIRY"
+  },
+  {
+    "timestamp": "2026-10-01T09:15:37.463Z",
+    "log_id": "LOG-1790846137463-51",
+    "action": "DELETE_ENQUIRY",
+    "user": "Admin",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-853267",
+    "details": "Deleted enquiry ENQ-853267 from Frontend Proxy Test"
+  },
+  {
+    "entity_id": "ENQ-054297",
+    "entity_type": "ENQUIRY",
+    "action": "DELETE_ENQUIRY",
+    "log_id": "LOG-1790846133827-863",
+    "details": "Deleted enquiry ENQ-054297 from tharun",
+    "timestamp": "2026-10-01T09:15:33.827Z",
+    "user": "Admin"
+  },
+  {
+    "timestamp": "2026-10-01T09:15:30.622Z",
+    "entity_type": "ENQUIRY",
+    "details": "Deleted enquiry ENQ-509298 from Viknesh R S",
+    "action": "DELETE_ENQUIRY",
+    "user": "Admin",
+    "log_id": "LOG-1790846130622-512",
+    "entity_id": "ENQ-509298"
+  },
+  {
+    "timestamp": "2026-10-01T09:15:25.857Z",
+    "user": "Admin",
+    "entity_type": "ENQUIRY",
+    "log_id": "LOG-1790846125857-311",
+    "details": "Deleted enquiry ENQ-774869 from Viknesh R S",
+    "entity_id": "ENQ-774869",
+    "action": "DELETE_ENQUIRY"
+  },
+  {
+    "action": "DELETE_ENQUIRY",
+    "entity_type": "ENQUIRY",
+    "timestamp": "2026-10-01T09:15:22.499Z",
+    "log_id": "LOG-1790846122498-773",
+    "user": "Admin",
+    "details": "Deleted enquiry ENQ-929156 from Viknesh R S",
+    "entity_id": "ENQ-929156"
+  },
+  {
+    "action": "UPDATE_ENQUIRY_STATUS",
+    "user": "Admin",
+    "timestamp": "2026-10-01T09:14:56.813Z",
+    "details": "Enquiry ENQ-651039 status changed: New -> Contacted (Status updated to Contacted)",
+    "log_id": "LOG-1790846096813-147",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-651039"
+  },
+  {
+    "action": "UPDATE_ENQUIRY_STATUS",
+    "details": "Enquiry ENQ-359004 status changed: New -> Contacted (Status updated to Contacted)",
+    "log_id": "LOG-1790846093574-566",
+    "timestamp": "2026-10-01T09:14:53.574Z",
     "entity_type": "ENQUIRY",
     "entity_id": "ENQ-359004",
+    "user": "Admin"
+  },
+  {
+    "user": "Admin",
+    "entity_id": "ENQ-879118",
+    "action": "UPDATE_ENQUIRY_STATUS",
+    "details": "Enquiry ENQ-879118 status changed: New -> Contacted (Status updated to Contacted)",
+    "entity_type": "ENQUIRY",
+    "timestamp": "2026-10-01T09:14:51.013Z",
+    "log_id": "LOG-1790846091013-622"
+  },
+  {
+    "timestamp": "2026-09-27T11:34:39.133Z",
+    "log_id": "LOG-1790508879133-135",
+    "entity_type": "ENQUIRY",
+    "user": "Admin",
+    "details": "New enquiry received from Viknesh R S (nn) for 500 Pcs of General Catalogue Enquiry",
+    "entity_id": "ENQ-879118",
+    "action": "NEW_ENQUIRY"
+  },
+  {
+    "entity_type": "ENQUIRY",
+    "action": "NEW_ENQUIRY",
+    "log_id": "LOG-1790419359007-846",
     "details": "New enquiry received from Viknesh R S (nedarsana) for 500 Pcs of General Catalogue Enquiry",
+    "entity_id": "ENQ-359004",
     "user": "Admin",
     "timestamp": "2026-09-26T10:42:39.007Z"
   },
   {
-    "log_id": "LOG-1790418651043-714",
-    "action": "NEW_ENQUIRY",
     "entity_type": "ENQUIRY",
     "entity_id": "ENQ-651039",
+    "log_id": "LOG-1790418651043-714",
+    "action": "NEW_ENQUIRY",
     "details": "New enquiry received from Test Connection (N/A) for 100 Pcs of General Catalogue Enquiry",
     "user": "Admin",
     "timestamp": "2026-09-26T10:30:51.043Z"
@@ -20,136 +182,172 @@
   {
     "log_id": "LOG-1790417509314-317",
     "action": "NEW_ENQUIRY",
-    "entity_type": "ENQUIRY",
-    "entity_id": "ENQ-509298",
     "details": "New enquiry received from Viknesh R S (v) for 500 Pcs of General Catalogue Enquiry",
+    "entity_id": "ENQ-509298",
     "user": "Admin",
+    "entity_type": "ENQUIRY",
     "timestamp": "2026-09-26T10:11:49.314Z"
   },
   {
-    "log_id": "LOG-1790408054309-294",
-    "action": "NEW_ENQUIRY",
     "entity_type": "ENQUIRY",
-    "entity_id": "ENQ-054297",
+    "timestamp": "2026-09-26T07:34:14.309Z",
     "details": "New enquiry received from tharun (samosaaa) for 500 Pcs of General Catalogue Enquiry",
     "user": "Admin",
-    "timestamp": "2026-09-26T07:34:14.309Z"
+    "action": "NEW_ENQUIRY",
+    "entity_id": "ENQ-054297",
+    "log_id": "LOG-1790408054309-294"
   },
   {
-    "log_id": "LOG-1790357783169-61",
-    "action": "ADMIN_LOGIN",
-    "entity_type": "AUTH",
-    "entity_id": "admin",
-    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
-    "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T17:36:23.169Z"
+    "entity_id": "ENQ-853267",
+    "entity_type": "ENQUIRY",
+    "user": "Admin",
+    "log_id": "LOG-1790407853376-123",
+    "details": "New enquiry received from Frontend Proxy Test (N/A) for 150 Pcs of General Catalogue Enquiry",
+    "timestamp": "2026-09-26T07:30:53.376Z",
+    "action": "NEW_ENQUIRY"
   },
   {
-    "log_id": "LOG-1790357774874-250",
+    "timestamp": "2026-09-26T07:30:25.057Z",
     "action": "NEW_ENQUIRY",
     "entity_type": "ENQUIRY",
+    "user": "Admin",
+    "log_id": "LOG-1790407825057-280",
+    "entity_id": "ENQ-824815",
+    "details": "New enquiry received from Antigravity Verification (Tiruppur Mill) for 200 Pcs of General Catalogue Enquiry"
+  },
+  {
+    "log_id": "LOG-1790407623021-551",
+    "entity_type": "ENQUIRY",
+    "entity_id": "ENQ-622168",
+    "details": "New enquiry received from Test Buyer (N/A) for 500 Pcs of General Catalogue Enquiry",
+    "action": "NEW_ENQUIRY",
+    "timestamp": "2026-09-26T07:27:03.021Z",
+    "user": "Admin"
+  },
+  {
+    "user": "Tirupur Admin Owner",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "entity_id": "admin",
+    "entity_type": "AUTH",
+    "timestamp": "2026-09-26T03:36:19.337Z",
+    "log_id": "LOG-1790393779337-576",
+    "action": "ADMIN_LOGIN"
+  },
+  {
+    "entity_id": "admin",
+    "user": "Tirupur Admin Owner",
+    "entity_type": "AUTH",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "timestamp": "2026-09-25T17:36:23.169Z",
+    "log_id": "LOG-1790357783169-61",
+    "action": "ADMIN_LOGIN"
+  },
+  {
+    "user": "Admin",
     "entity_id": "ENQ-774869",
     "details": "New enquiry received from Viknesh R S (nedarsana) for 500 Pcs of General Catalogue Enquiry",
-    "user": "Admin",
-    "timestamp": "2026-09-25T17:36:14.874Z"
+    "entity_type": "ENQUIRY",
+    "action": "NEW_ENQUIRY",
+    "timestamp": "2026-09-25T17:36:14.874Z",
+    "log_id": "LOG-1790357774874-250"
   },
   {
-    "log_id": "LOG-1790357580557-654",
-    "action": "DELETE_ENQUIRY",
     "entity_type": "ENQUIRY",
     "entity_id": "ENQ-574735",
+    "log_id": "LOG-1790357580557-654",
     "details": "Deleted enquiry ENQ-574735 from Firestore Verification Buyer",
     "user": "Admin",
-    "timestamp": "2026-09-25T17:33:00.557Z"
+    "timestamp": "2026-09-25T17:33:00.557Z",
+    "action": "DELETE_ENQUIRY"
   },
   {
-    "log_id": "LOG-1790357574754-379",
-    "action": "NEW_ENQUIRY",
-    "entity_type": "ENQUIRY",
     "entity_id": "ENQ-574735",
+    "action": "NEW_ENQUIRY",
     "details": "New enquiry received from Firestore Verification Buyer (Tiruppur Wholesale Direct) for 300 Pcs of Premium Combed Cotton",
+    "log_id": "LOG-1790357574754-379",
     "user": "Admin",
-    "timestamp": "2026-09-25T17:32:54.754Z"
+    "timestamp": "2026-09-25T17:32:54.754Z",
+    "entity_type": "ENQUIRY"
   },
   {
+    "entity_type": "AUTH",
+    "user": "Tirupur Admin Owner",
     "log_id": "LOG-1790355015657-268",
+    "timestamp": "2026-09-25T16:50:15.657Z",
     "action": "ADMIN_LOGIN",
-    "entity_type": "AUTH",
     "entity_id": "admin",
-    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
-    "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T16:50:15.657Z"
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully"
   },
   {
-    "log_id": "LOG-1790354702880-397",
-    "action": "ADMIN_LOGIN",
-    "entity_type": "AUTH",
-    "entity_id": "admin",
     "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "entity_id": "admin",
     "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T16:45:02.880Z"
+    "action": "ADMIN_LOGIN",
+    "timestamp": "2026-09-25T16:45:02.880Z",
+    "entity_type": "AUTH",
+    "log_id": "LOG-1790354702880-397"
   },
   {
-    "log_id": "LOG-1790354670269-417",
-    "action": "ADMIN_LOGIN",
-    "entity_type": "AUTH",
-    "entity_id": "admin",
     "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "entity_id": "admin",
     "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T16:44:30.269Z"
+    "action": "ADMIN_LOGIN",
+    "timestamp": "2026-09-25T16:44:30.269Z",
+    "entity_type": "AUTH",
+    "log_id": "LOG-1790354670269-417"
   },
   {
+    "action": "ADMIN_LOGIN",
+    "entity_id": "admin",
+    "user": "Tirupur Admin Owner",
     "log_id": "LOG-1790354650310-592",
-    "action": "ADMIN_LOGIN",
     "entity_type": "AUTH",
-    "entity_id": "admin",
-    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
-    "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T16:44:10.310Z"
+    "timestamp": "2026-09-25T16:44:10.310Z",
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully"
   },
   {
+    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
+    "timestamp": "2026-09-25T16:42:25.394Z",
     "log_id": "LOG-1790354545394-468",
-    "action": "ADMIN_LOGIN",
     "entity_type": "AUTH",
     "entity_id": "admin",
-    "details": "Administrator \"Tirupur Admin Owner\" signed in successfully",
     "user": "Tirupur Admin Owner",
-    "timestamp": "2026-09-25T16:42:25.394Z"
+    "action": "ADMIN_LOGIN"
   },
   {
+    "user": "Admin",
     "log_id": "LOG-1790353929158-833",
     "action": "NEW_ENQUIRY",
+    "timestamp": "2026-09-25T16:32:09.158Z",
     "entity_type": "ENQUIRY",
     "entity_id": "ENQ-929156",
-    "details": "New enquiry received from Viknesh R S (gg) for 200 Pcs of Premium Fine Printed Combed Cotton Fabric (GVF-101)",
-    "user": "Admin",
-    "timestamp": "2026-09-25T16:32:09.158Z"
+    "details": "New enquiry received from Viknesh R S (gg) for 200 Pcs of Premium Fine Printed Combed Cotton Fabric (GVF-101)"
   },
   {
-    "log_id": "LOG-1790353533939-819",
-    "action": "DELETE_PRODUCT",
     "entity_type": "PRODUCT",
     "entity_id": "1790353528294",
     "details": "Deleted product \"Test Fabric Sample\" (GVF-999)",
+    "log_id": "LOG-1790353533939-819",
+    "timestamp": "2026-09-25T16:25:33.939Z",
     "user": "Admin",
-    "timestamp": "2026-09-25T16:25:33.939Z"
+    "action": "DELETE_PRODUCT"
   },
   {
-    "log_id": "LOG-1790353528296-9",
-    "action": "ADD_PRODUCT",
+    "details": "Added new product \"Test Fabric Sample\" (GVF-999) at ₹310 / Kg",
+    "timestamp": "2026-09-25T16:25:28.296Z",
     "entity_type": "PRODUCT",
     "entity_id": "1790353528294",
-    "details": "Added new product \"Test Fabric Sample\" (GVF-999) at ₹310 / Kg",
+    "action": "ADD_PRODUCT",
     "user": "Admin",
-    "timestamp": "2026-09-25T16:25:28.296Z"
+    "log_id": "LOG-1790353528296-9"
   },
   {
-    "log_id": "LOG-1790353505711-165",
-    "action": "UPDATE_ENQUIRY_STATUS",
-    "entity_type": "ENQUIRY",
-    "entity_id": "ENQ-90119",
-    "details": "Enquiry ENQ-90119 status changed: New -> Contacted (Called customer, confirmed stock availability)",
     "user": "Admin",
-    "timestamp": "2026-09-25T16:25:05.711Z"
+    "details": "Enquiry ENQ-90119 status changed: New -> Contacted (Called customer, confirmed stock availability)",
+    "entity_id": "ENQ-90119",
+    "entity_type": "ENQUIRY",
+    "action": "UPDATE_ENQUIRY_STATUS",
+    "timestamp": "2026-09-25T16:25:05.711Z",
+    "log_id": "LOG-1790353505711-165"
   }
 ]

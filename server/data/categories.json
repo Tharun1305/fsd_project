@@ -1,50 +1,50 @@
 [
   {
     "category_id": "1",
+    "description": "Premium fine printed cotton fabrics with vibrant designs & lasting colour fastness.",
     "category_name": "Fine Printed",
-    "icon": "Shirt",
-    "description": "Premium fine printed cotton fabrics with vibrant designs & lasting colour fastness."
+    "icon": "Shirt"
   },
   {
-    "category_id": "2",
     "category_name": "Plain / Normal",
-    "icon": "Layers",
-    "description": "Solid colour plain & normal knit fabrics for everyday garment manufacturing."
+    "category_id": "2",
+    "description": "Solid colour plain & normal knit fabrics for everyday garment manufacturing.",
+    "icon": "Layers"
   },
   {
     "category_id": "3",
-    "category_name": "Loop Knit",
+    "description": "Soft loop knit cotton fabrics ideal for sweatshirts, hoodies & winter wear.",
     "icon": "Shirt",
-    "description": "Soft loop knit cotton fabrics ideal for sweatshirts, hoodies & winter wear."
+    "category_name": "Loop Knit"
   },
   {
     "category_id": "4",
-    "category_name": "Interlock",
+    "description": "Double-knit interlock fabrics with smooth finish on both sides for premium garments.",
     "icon": "Layers",
-    "description": "Double-knit interlock fabrics with smooth finish on both sides for premium garments."
+    "category_name": "Interlock"
   },
   {
+    "description": "French terry & terry cotton fabrics for towels, bathrobes & loungewear.",
     "category_id": "5",
     "category_name": "Terry",
-    "icon": "Shirt",
-    "description": "French terry & terry cotton fabrics for towels, bathrobes & loungewear."
+    "icon": "Shirt"
   },
   {
+    "description": "High-quality stitching & embroidery threads in a wide range of colours.",
     "category_id": "6",
     "category_name": "Thread",
-    "icon": "Layers",
-    "description": "High-quality stitching & embroidery threads in a wide range of colours."
+    "icon": "Layers"
   },
   {
-    "category_id": "7",
     "category_name": "Yarn",
+    "category_id": "7",
     "icon": "Layers",
     "description": "Combed & carded cotton yarn in various counts for knitting & weaving."
   },
   {
     "category_id": "8",
+    "description": "Enzyme bio-washed fabrics with ultra-soft feel, zero lint & premium finish.",
     "category_name": "Bio-Wash",
-    "icon": "Sparkles",
-    "description": "Enzyme bio-washed fabrics with ultra-soft feel, zero lint & premium finish."
+    "icon": "Sparkles"
   }
 ]

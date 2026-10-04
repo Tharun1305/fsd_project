@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_6kfWeUDKRD27ZsAPSnrdNnm6Ms4H",
+  "orgId": "team_QKkkOWnBfc5FRoDAp7peBU9v",
+  "projectName": "fsd_project",
+  "settings": {
+    "createdAt": 1790506478722,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}

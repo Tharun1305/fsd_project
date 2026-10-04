@@ -1,0 +1,24 @@
+{
+  "handler": "api/index.js",
+  "runtime": "nodejs24.x",
+  "architecture": "x86_64",
+  "environment": {},
+  "shouldDisableAutomaticFetchInstrumentation": false,
+  "launcherType": "Nodejs",
+  "shouldAddHelpers": true,
+  "shouldAddSourcemapSupport": false,
+  "awsLambdaHandler": "",
+  "filePathMap": {
+    "server/data/_BACKUP_pre_firestore_migration_1790415851634.json": "server/data/_BACKUP_pre_firestore_migration_1790415851634.json",
+    "server/data/_BACKUP_pre_migration_2026-09-26T09-51-46-412Z.json": "server/data/_BACKUP_pre_migration_2026-09-26T09-51-46-412Z.json",
+    "server/data/activity_logs.json": "server/data/activity_logs.json",
+    "server/data/admin.json": "server/data/admin.json",
+    "server/data/announcements.json": "server/data/announcements.json",
+    "server/data/callback_requests.json": "server/data/callback_requests.json",
+    "server/data/categories.json": "server/data/categories.json",
+    "server/data/enquiries.json": "server/data/enquiries.json",
+    "server/data/offers.json": "server/data/offers.json",
+    "server/data/products.json": "server/data/products.json",
+    "server/data/sample_requests.json": "server/data/sample_requests.json"
+  }
+}
